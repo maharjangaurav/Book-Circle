@@ -4,6 +4,7 @@ const Book = require("../models/books");
 // Create (Writer publishes a book)
 exports.createBook = async (req, res) => {
   const { title, author, previewText, isPremium, genre, recentlyAdded, likes, views, completionPercentage, coverImage, chapterCount,status } = req.body;
+  console.log(req.body,"Creating new book");
   try {
     const newBook = new NewBook({
       title,

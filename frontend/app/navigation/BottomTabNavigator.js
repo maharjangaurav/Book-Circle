@@ -17,6 +17,7 @@ import ManageChaptersScreen from "../screens/ManageChaptersScreen"
 import BookDetailScreen from "../screens/BookDetailScreen"
 import CreateBookScreen from "../screens/CreateBookScreen"
 import EditBookScreen from "../screens/EditBookScreen"
+import { BooksAPI } from "../api/books"
 
 const Tab = createBottomTabNavigator()
 
@@ -33,6 +34,7 @@ const COLORS = {
 
 const HeaderWithAvatar = ({ navigation }) => {
   const { user } = useAuth()
+
 
   // Get first letter of user name for avatar
   const getInitial = () => {
@@ -53,6 +55,7 @@ const HeaderWithAvatar = ({ navigation }) => {
 
 export default function BottomTabNavigator({ navigation }) {
   const [unreadCount, setUnreadCount] = useState(0)
+    const[finishedBooks, setFinishedBooks] = useState([])
   const { user } = useAuth()
 
   useEffect(() => {
@@ -72,6 +75,26 @@ export default function BottomTabNavigator({ navigation }) {
 
     return () => clearInterval(intervalId)
   }, [])
+
+      async function fetchAllBooks(){
+      try{
+const response = await BooksAPI.get(`books/read/finished`)
+      const bookss = response.data.map((book, index) => ({
+        id: index + 1,
+        _id: book._id,
+        title: book.title,
+        author: book.author,
+        preview: book.previewText,
+        isPremium: book.isPremium,
+        trending: book.trending || false,
+        recentlyAdded: book.recentlyAdded,
+        genre: book.genre,
+      }))
+      setFinishedBooks(bookss)
+      }catch(error){
+        console.error("Error fetching all books in BottomTabNavigator:", error);
+      }
+    }
 
   return (
     <Tab.Navigator
@@ -134,21 +157,23 @@ export default function BottomTabNavigator({ navigation }) {
           route.name === "Home" ? <HeaderWithAvatar navigation={headerNav} /> : undefined,
       })}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{
-          title: "Home",
-          headerShown: true,
-        }}
-      />
-      <Tab.Screen
-        name="Explore"
-        component={ExploreScreen}
-        options={{
-          title: "Explore",
-        }}
-      />
+<Tab.Screen name="Home">
+  {() => (
+    <HomeScreen
+      finishedBooks={finishedBooks}
+      fetchAllBooks={fetchAllBooks}
+    />
+  )}
+</Tab.Screen>
+
+<Tab.Screen name="Explore">
+  {() => (
+    <ExploreScreen
+      finishedBooks={finishedBooks}
+      fetchAllBooks={fetchAllBooks}
+    />
+  )}
+</Tab.Screen>
       <Tab.Screen
         name="Library"
         component={LibraryScreen}
@@ -156,13 +181,13 @@ export default function BottomTabNavigator({ navigation }) {
           title: "My Library",
         }}
       />
-      <Tab.Screen
-        name="Writer"
-        component={WriterScreen}
-        options={{
-          title: "Write",
-        }}
-      />
+      <Tab.Screen name="Writer">
+  {() => (
+    <WriterScreen
+      fetchAllBooks={fetchAllBooks}
+    />
+  )}
+</Tab.Screen>
       <Tab.Screen
         name="Notifications"
         component={NotificationsScreen}

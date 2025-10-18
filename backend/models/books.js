@@ -5,7 +5,7 @@ const newBookSchema = new mongoose.Schema(
     title: { type: String, required: true },
     author: { type: String, required: true },
     previewText: { type: String, required: true },
-    genre: { type: String, required: true },
+    genre: { type: [String], required: true },
     status: {
       type: String,
       enum: ["draft", "published", "finished"],

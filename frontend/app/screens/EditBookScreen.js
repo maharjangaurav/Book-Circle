@@ -15,18 +15,19 @@ import {
 import { MaterialIcons } from "@expo/vector-icons"
 import { BooksAPI } from "../api/books"
 import { useNavigation, useRoute } from "@react-navigation/native"
+import GenreDropdown from "../components/GenreDropdown"
 
 export default function EditBookScreen() {
   const navigation = useNavigation()
   const route = useRoute()
-  const { bookId } = route.params
+  const { bookId, fetchBooks } = route.params
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    genre: "",
+    genre: [],
     author: "",
   })
 
@@ -42,7 +43,7 @@ export default function EditBookScreen() {
       setFormData({
         title: book.title || "",
         description: book.previewText || "",
-        genre: book.genre || "",
+        genre: Array.isArray(book.genre) ? book.genre : book.genre ? [book.genre] : [],
         author: book.author || "",
       })
     } catch (error) {
@@ -60,9 +61,21 @@ export default function EditBookScreen() {
     }))
   }
 
+  const handleGenreChange = (genres) => {
+    setFormData((prev) => ({
+      ...prev,
+      genre: genres,
+    }))
+  }
+
   const handleSaveBook = async () => {
     if (!formData.title.trim()) {
       Alert.alert("Error", "Please enter a book title")
+      return
+    }
+
+    if (formData.genre.length === 0) {
+      Alert.alert("Error", "Please select at least one genre")
       return
     }
 
@@ -76,6 +89,7 @@ export default function EditBookScreen() {
       })
 
       Alert.alert("Success", "Book updated successfully!")
+      fetchBooks()
       navigation.goBack()
     } catch (error) {
       console.error("Error updating book:", error)
@@ -129,14 +143,8 @@ export default function EditBookScreen() {
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Genre</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter genre (e.g., Fiction, Mystery)"
-            value={formData.genre}
-            onChangeText={(value) => handleInputChange("genre", value)}
-            placeholderTextColor="#999"
-          />
+          <Text style={styles.label}>Genres *</Text>
+          <GenreDropdown selectedGenres={formData.genre} onGenresChange={handleGenreChange} />
         </View>
 
         <View style={styles.formGroup}>

@@ -17,7 +17,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { BooksAPI } from '../api/books';
 import { useNavigation } from '@react-navigation/native';
 
-export default function ExploreScreen() {
+export default function ExploreScreen({ finishedBooks, fetchAllBooks }) {
   const navigation = useNavigation();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -51,10 +51,20 @@ export default function ExploreScreen() {
     '4+ Stars',
     '3+ Stars'
   ];
-  
+
+    useEffect(() => {
+    if (finishedBooks){
+      console.log("Finished books in ExploreScreen:", finishedBooks);
+          setLoading(true)
+          setFeaturedBooks(finishedBooks)
+      setLoading(false)
+    }
+  }, [finishedBooks])
+
   useEffect(() => {
-    loadFeaturedBooks();
-  }, []);
+    fetchAllBooks()
+  }, [])
+  
   
   const loadFeaturedBooks = () => {
     // In a real app, this would be an API call
@@ -112,7 +122,7 @@ export default function ExploreScreen() {
         ];
         
         // Filter based on search parameters
-        let filteredResults = mockBooks;
+        let filteredResults = featuredBooks;
         
         if (searchQuery.trim()) {
           const query = searchQuery.toLowerCase();
@@ -219,7 +229,7 @@ export default function ExploreScreen() {
             )}
             scrollEventThrottle={16}
           >
-            {featuredBooks.map((book, index) => (
+            {/* {featuredBooks.map((book, index) => (
               <TouchableOpacity 
                 key={`featured-${book.id}`}
                 style={styles.carouselItem}
@@ -240,7 +250,7 @@ export default function ExploreScreen() {
                   )}
                 </View>
               </TouchableOpacity>
-            ))}
+            ))} */}
           </ScrollView>
           <View style={styles.paginationContainer}>
             {featuredBooks.map((_, index) => {

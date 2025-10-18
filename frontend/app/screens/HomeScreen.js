@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react"
 import { View, Text, ActivityIndicator, FlatList, StyleSheet, TouchableOpacity } from "react-native"
 import { MaterialIcons } from "@expo/vector-icons"
-import { useNavigation } from "@react-navigation/native"
+import { useNavigation, useRoute } from "@react-navigation/native"
 import { BooksAPI } from "../api/books"
 import { useAuth } from "../context/AuthContext"
 
-export default function HomeScreen() {
+export default function HomeScreen({ finishedBooks, fetchAllBooks }) {
   const navigation = useNavigation()
+
   const { user } = useAuth()
   const [books, setBooks] = useState([])
   const [trendingBooks, setTrendingBooks] = useState([])
@@ -16,44 +17,47 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const fetchBooks = async () => {
-    setLoading(true)
-    setError(null)
+  // const fetchBooks = async () => {
 
-    try {
-      // In a real implementation, we would use the actual API
-      // const data = await BooksAPI.list();
 
-      // Mock data for demonstration
-      const response = await BooksAPI.get(`books/read/finished`)
-      const bookss = response.data.map((book, index) => ({
-        id: index + 1,
-        _id: book._id,
-        title: book.title,
-        author: book.author,
-        preview: book.previewText,
-        isPremium: book.isPremium,
-        trending: book.trending || false,
-        recentlyAdded: book.recentlyAdded,
-      }))
+  //   try {
+  //     const response = await BooksAPI.get(`books/read/finished`)
+  //     const bookss = response.data.map((book, index) => ({
+  //       id: index + 1,
+  //       _id: book._id,
+  //       title: book.title,
+  //       author: book.author,
+  //       preview: book.previewText,
+  //       isPremium: book.isPremium,
+  //       trending: book.trending || false,
+  //       recentlyAdded: book.recentlyAdded,
+  //     }))
 
-      console.log(bookss)
+  //     console.log(bookss)
 
-      // console.log(books, "books from api");
+  //     // console.log(books, "books from api");
 
-      setBooks(bookss)
-      setTrendingBooks(bookss.filter((book) => book.trending))
-      setRecentBooks(bookss.filter((book) => book.recentlyAdded))
-      setLoading(false)
-    } catch (err) {
-      console.error("Error fetching books:", err)
-      setError("Failed to load books. Please check your connection.")
-      setLoading(false)
-    }
-  }
+
+  //   } catch (err) {
+  //     console.error("Error fetching books:", err)
+  //     setError("Failed to load books. Please check your connection.")
+  //     setLoading(false)
+  //   }
+  // }
 
   useEffect(() => {
-    fetchBooks()
+    if (finishedBooks){
+          setLoading(true)
+    setError(null)
+          setBooks(finishedBooks)
+      setTrendingBooks(finishedBooks.filter((book) => book.trending))
+      setRecentBooks(finishedBooks.filter((book) => book.recentlyAdded))
+      setLoading(false)
+    }
+  }, [finishedBooks])
+
+  useEffect(() => {
+    fetchAllBooks()
   }, [])
 
   const renderBook = ({ item }) => (
@@ -111,7 +115,7 @@ export default function HomeScreen() {
     return (
       <View style={styles.centered}>
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={fetchBooks}>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchAllBooks()}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>

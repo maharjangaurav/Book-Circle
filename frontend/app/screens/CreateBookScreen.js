@@ -14,10 +14,13 @@ import {
 } from "react-native"
 import { MaterialIcons } from "@expo/vector-icons"
 import { BooksAPI } from "../api/books"
-import { useNavigation } from "@react-navigation/native"
+import { useNavigation, useRoute } from "@react-navigation/native"
+import GenreDropdown from "../components/GenreDropdown"
 
 export default function CreateBookScreen() {
-  const navigation = useNavigation()
+    const navigation = useNavigation()
+    const route = useRoute()
+    const { fetchBooks } = route.params
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     title: "",
@@ -33,11 +36,24 @@ export default function CreateBookScreen() {
     }))
   }
 
+    const handleGenreChange = (genres) => {
+    setFormData((prev) => ({
+      ...prev,
+      genre: genres,
+    }))
+  }
+
   const handleCreateBook = async () => {
     if (!formData.title.trim()) {
       Alert.alert("Error", "Please enter a book title")
       return
     }
+
+        if (formData.genre.length === 0) {
+      Alert.alert("Error", "Please select at least one genre")
+      return
+    }
+
 
     setLoading(true)
     try {
@@ -48,6 +64,7 @@ export default function CreateBookScreen() {
         author: formData.author,
         status: "draft",
       })
+      fetchBooks()
 
       Alert.alert("Success", "Book created successfully!")
       navigation.goBack()
@@ -93,14 +110,8 @@ export default function CreateBookScreen() {
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Genre</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter genre (e.g., Fiction, Mystery)"
-            value={formData.genre}
-            onChangeText={(value) => handleInputChange("genre", value)}
-            placeholderTextColor="#999"
-          />
+          <Text style={styles.label}>Genres *</Text>
+          <GenreDropdown selectedGenres={formData.genre} onGenresChange={handleGenreChange} />
         </View>
 
         <View style={styles.formGroup}>
