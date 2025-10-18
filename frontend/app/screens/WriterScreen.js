@@ -26,15 +26,32 @@ export default function WriterScreen() {
   useEffect(() => {
     fetchBooks();
   }, []);
+
+  const PublishBook = async (bookId, status) => {
+    try{
+      console.log('Publishing book with ID:', bookId, 'to status:', status);
+      const updatedResponse = await BooksAPI.update(`books/read/${bookId}`,{ status: status })
+      console.log('Book published successfully:', updatedResponse);
+    }catch(error){
+      console.error('Error publishing book:', error);
+    }
+  }
   
   const fetchBooks = async () => {
     setLoading(true);
     try {
-      // Fetch books from API
-      const response = await BooksAPI.getMyBooks();
+
+
+           const draftResponse = await BooksAPI.get(`books/read/draft`)
+     const publihedResponse = await BooksAPI.get(`books/read/published`) 
+
+
+          let bookData=[...draftResponse.data,...publihedResponse.data];
+
+console.log(bookData, "draft books");
       
       // For demo purposes, we'll create some mock data if the API call fails
-      let booksData = response || generateMockBooks();
+      let booksData = bookData
       
       // Cache the books data
       await AsyncStorage.setItem('writer_books', JSON.stringify(booksData));
@@ -49,59 +66,17 @@ export default function WriterScreen() {
         if (cachedBooks) {
           setBooks(JSON.parse(cachedBooks));
         } else {
-          setBooks(generateMockBooks());
+          setBooks([]);
         }
       } catch (cacheError) {
         console.error('Error loading from cache:', cacheError);
-        setBooks(generateMockBooks());
+        setBooks([]); 
       }
     } finally {
       setLoading(false);
     }
   };
   
-  const generateMockBooks = () => {
-    return [
-      {
-        id: '1',
-        title: 'The Art of Fiction',
-        coverImage: 'https://via.placeholder.com/150',
-        status: 'published',
-        publishedDate: '2023-05-15',
-        chapterCount: 12,
-        views: 1245,
-        likes: 89
-      },
-      {
-        id: '2',
-        title: 'Mystery of the Ancient Runes',
-        coverImage: 'https://via.placeholder.com/150',
-        status: 'published',
-        publishedDate: '2023-07-22',
-        chapterCount: 8,
-        views: 756,
-        likes: 42
-      },
-      {
-        id: '3',
-        title: 'Future Horizons',
-        coverImage: 'https://via.placeholder.com/150',
-        status: 'draft',
-        lastEdited: '2023-09-10',
-        chapterCount: 5,
-        completionPercentage: 60
-      },
-      {
-        id: '4',
-        title: 'The Lost Kingdom',
-        coverImage: 'https://via.placeholder.com/150',
-        status: 'draft',
-        lastEdited: '2023-10-05',
-        chapterCount: 3,
-        completionPercentage: 25
-      }
-    ];
-  };
   
   const navigateToCreateBook = () => {
     setShowCreateModal(false);
@@ -111,12 +86,12 @@ export default function WriterScreen() {
   
   const navigateToEditBook = (book) => {
     // Navigate to book editing screen with the book data
-    navigation.navigate('EditBook', { bookId: book.id });
+    navigation.navigate('EditBook', { bookId: book._id });
   };
   
   const navigateToChapters = (book) => {
     // Navigate to chapter management screen
-    navigation.navigate('ManageChapters', { bookId: book.id });
+    navigation.navigate('ManageChapters', { bookId: book._id });
   };
   
   const handleDeleteBook = (book) => {
@@ -131,9 +106,9 @@ export default function WriterScreen() {
           onPress: async () => {
             try {
               // Delete book API call
-              await BooksAPI.deleteBook(book.id);
+              await BooksAPI.delete(`books/read/${book._id}`);
               // Update local state
-              setBooks(books.filter(b => b.id !== book.id));
+              setBooks(books.filter(b => b._id !== book._id));
               Alert.alert('Success', 'Book deleted successfully');
             } catch (error) {
               console.error('Error deleting book:', error);
@@ -268,6 +243,7 @@ export default function WriterScreen() {
                   style={styles.modalOption}
                   onPress={() => {
                     setShowCreateModal(false);
+                    PublishBook(selectedBook._id, "published");
                     // Publish book logic
                     Alert.alert('Coming Soon', 'Publishing functionality will be available soon');
                   }}
@@ -343,7 +319,7 @@ export default function WriterScreen() {
         <FlatList
           data={books.filter(book => book.status === activeTab)}
           renderItem={renderBookItem}
-          keyExtractor={item => item.id.toString()}
+          keyExtractor={item => item._id.toString()}
           contentContainerStyle={styles.listContainer}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>

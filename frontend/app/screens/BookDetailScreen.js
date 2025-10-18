@@ -31,11 +31,24 @@ export default function BookDetailScreen({ route, navigation }) {
     setError(null);
 
     try {
-      // In a real implementation, we would use the actual API
-      // const data = await BooksAPI.getById(bookId);
-      
-      // Mock data for demonstration
-      setTimeout(() => {
+        const response = await BooksAPI.getById(`books/readbyid/${bookId}`)
+        console.log(response, "book detail response");
+const book = {
+  id: response._id,
+  title: response.title,
+  author: response.author,
+  preview: response.previewText,
+  isPremium: response.isPremium,
+  trending: response.trending || false,
+  recentlyAdded: response.recentlyAdded,
+  description: "This is a detailed description of the book...",
+  published_date: response.createdAt,
+  genre: "Fantasy",
+  rating: 5,
+  coverImage: null,
+};
+
+        console.log(book)
         const mockBook = {
           id: bookId,
           title: "Book Title " + bookId,
@@ -51,9 +64,8 @@ export default function BookDetailScreen({ route, navigation }) {
           libraryId: null // Will be set if book is in library
         };
         
-        setBook(mockBook);
+        setBook(book);
         setLoading(false);
-      }, 1000);
     } catch (err) {
       console.error("Error fetching book details:", err);
       setError("Failed to load book details. Please try again.");

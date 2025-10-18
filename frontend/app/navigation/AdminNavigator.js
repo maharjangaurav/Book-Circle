@@ -15,7 +15,7 @@ export default function AdminNavigator() {
       <Stack.Screen name="AdminTabs" component={BottomTabNavigator} />
       <Stack.Screen 
         name="BookDetail" 
-        component={BookDetailScreen} 
+        component={BookDetailScreen}
         options={{
           headerShown: true,
           title: 'Book Details',

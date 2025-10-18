@@ -15,15 +15,20 @@ import {
 } from "react-native"
 import { useAuth } from "../context/AuthContext"
 
-export default function LoginScreen({ navigation }) {
+export default function SignUpScreen({ navigation }) {
+  const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [errors, setErrors] = useState({})
 
-  const { login, isLoading, error } = useAuth()
+  const { signup, isLoading, error } = useAuth()
 
   const validateForm = () => {
     const newErrors = {}
+
+    if (!name) newErrors.name = "Name is required"
+    else if (name.length < 2) newErrors.name = "Name must be at least 2 characters"
 
     if (!email) newErrors.email = "Email is required"
     else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = "Email is invalid"
@@ -31,16 +36,19 @@ export default function LoginScreen({ navigation }) {
     if (!password) newErrors.password = "Password is required"
     else if (password.length < 6) newErrors.password = "Password must be at least 6 characters"
 
+    if (!confirmPassword) newErrors.confirmPassword = "Please confirm your password"
+    else if (password !== confirmPassword) newErrors.confirmPassword = "Passwords do not match"
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
-  const handleLogin = async () => {
+  const handleSignUp = async () => {
     if (!validateForm()) return
 
-    const result = await login(email, password)
+    const result = await signup(email, password, name)
     if (!result.success) {
-      Alert.alert("Login Failed", result.error)
+      Alert.alert("Sign Up Failed", result.error)
     }
   }
 
@@ -49,17 +57,30 @@ export default function LoginScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.logoContainer}>
           <Text style={styles.appName}>BookCircle</Text>
-          <Text style={styles.tagline}>Your reading and writing community</Text>
+          <Text style={styles.tagline}>Join our reading and writing community</Text>
         </View>
 
         <View style={styles.formContainer}>
-          <Text style={styles.title}>Login</Text>
+          <Text style={styles.title}>Create Account</Text>
 
           {error && (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>{error}</Text>
             </View>
           )}
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Full Name</Text>
+            <TextInput
+              style={[styles.input, errors.name && styles.inputError]}
+              value={name}
+              onChangeText={setName}
+              placeholder="Enter your full name"
+              autoCapitalize="words"
+              editable={!isLoading}
+            />
+            {errors.name && <Text style={styles.fieldError}>{errors.name}</Text>}
+          </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email</Text>
@@ -88,18 +109,38 @@ export default function LoginScreen({ navigation }) {
             {errors.password && <Text style={styles.fieldError}>{errors.password}</Text>}
           </View>
 
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Confirm Password</Text>
+            <TextInput
+              style={[styles.input, errors.confirmPassword && styles.inputError]}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="Confirm your password"
+              secureTextEntry
+              editable={!isLoading}
+            />
+            {errors.confirmPassword && <Text style={styles.fieldError}>{errors.confirmPassword}</Text>}
+          </View>
+
           <TouchableOpacity
-            style={[styles.button, (!email || !password || isLoading) && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={isLoading || !email || !password}
+            style={[
+              styles.button,
+              (!name || !email || !password || !confirmPassword || isLoading) && styles.buttonDisabled,
+            ]}
+            onPress={handleSignUp}
+            disabled={isLoading || !name || !email || !password || !confirmPassword}
           >
-            {isLoading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.buttonText}>Login</Text>}
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Sign Up</Text>
+            )}
           </TouchableOpacity>
 
-          <View style={styles.signupContainer}>
-            <Text style={styles.signupText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate("SignUp")} disabled={isLoading}>
-              <Text style={styles.signupLink}>Sign Up</Text>
+          <View style={styles.loginContainer}>
+            <Text style={styles.loginText}>Already have an account? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate("Login")} disabled={isLoading}>
+              <Text style={styles.loginLink}>Login</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -196,16 +237,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
   },
-  signupContainer: {
+  loginContainer: {
     flexDirection: "row",
     justifyContent: "center",
     marginTop: 20,
   },
-  signupText: {
+  loginText: {
     fontSize: 14,
     color: "#666",
   },
-  signupLink: {
+  loginLink: {
     fontSize: 14,
     color: "#0A84FF",
     fontWeight: "bold",

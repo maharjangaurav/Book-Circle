@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 
 // Create axios instance with direct baseURL - no backticks
 const client = axios.create({
-  baseURL: "http://192.168.0.107:8000",  // Using double quotes instead of single quotes
+  baseURL: "http://192.168.0.100:8000",  // Using double quotes instead of single quotes
   timeout: 30000, // Increased timeout for slower connections
   headers: {
     'Content-Type': 'application/json',
@@ -47,7 +47,7 @@ client.interceptors.response.use(
         }
         
         const response = await axios.post(
-          'http://192.168.0.107:8000/api/auth/refresh/',
+          'http://192.168.0.2/api/auth/refresh/',
           { refresh: refreshToken }
         );
         

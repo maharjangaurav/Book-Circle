@@ -2,10 +2,13 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { AuthProvider } from './app/context/AuthContext';
 import AppNavigator from './app/navigation/AppNavigator';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function App() {
   return (
     <AuthProvider>
+      <SafeAreaView style={{ flex: 1 }}>
+
       <NavigationContainer
         theme={{
           colors: {
@@ -21,6 +24,7 @@ export default function App() {
       >
         <AppNavigator />
       </NavigationContainer>
+</SafeAreaView>
     </AuthProvider>
   );
 }

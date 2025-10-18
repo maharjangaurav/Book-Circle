@@ -1,181 +1,178 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as AuthAPI from '../api/auth';
+"use client"
 
-const AuthContext = createContext();
+import React, { createContext, useState, useEffect, useCallback } from "react"
+import AsyncStorage from "@react-native-async-storage/async-storage"
 
-const TOKEN_KEY = 'bookcircle_auth_token';
-const REFRESH_KEY = 'bookcircle_refresh_token';
-const USER_KEY = 'bookcircle_user';
+export const AuthContext = createContext()
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [user, setUser] = useState(null)
+  const [token, setToken] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
 
+  // Check if user is already logged in on app start
   useEffect(() => {
-    const loadStoredAuth = async () => {
+    const bootstrapAsync = async () => {
       try {
-        const storedToken = await AsyncStorage.getItem(TOKEN_KEY);
-        const storedUser = await AsyncStorage.getItem(USER_KEY);
-        if (storedToken && storedUser) {
-          setToken(storedToken);
-          setUser(JSON.parse(storedUser));
+        const savedToken = await AsyncStorage.getItem("authToken")
+        const savedUser = await AsyncStorage.getItem("userData")
+
+        if (savedToken && savedUser) {
+          setToken(savedToken)
+          setUser(JSON.parse(savedUser))
         }
       } catch (e) {
-        console.error('Failed to load authentication data', e);
+        console.error("Failed to restore token", e)
       } finally {
-        setLoading(false);
+        setIsLoading(false)
       }
-    };
-    loadStoredAuth();
-  }, []);
+    }
 
-  const storeAuthData = async (userData, accessToken, refreshToken) => {
+    bootstrapAsync()
+  }, [])
+
+  // Login function
+  const login = useCallback(async (email, password) => {
+    setIsLoading(true)
+    setError(null)
+
     try {
-      if (!accessToken) return;
-      await AsyncStorage.setItem(TOKEN_KEY, accessToken);
-      if (refreshToken) await AsyncStorage.setItem(REFRESH_KEY, refreshToken);
-      await AsyncStorage.setItem(USER_KEY, JSON.stringify(userData));
-    } catch (e) {
-      console.error('Failed to store authentication data', e);
-    }
-  };
+      const response = await fetch("http://192.168.0.101:3000/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      })
 
-  const clearAuthData = async () => {
-    try {
-      await AsyncStorage.multiRemove([TOKEN_KEY, REFRESH_KEY, USER_KEY]);
-    } catch (e) {
-      console.error('Failed to clear authentication data', e);
-    }
-  };
+      const data = await response.json()
 
-  // In app/context/AuthContext.js - modify the login function
-
-const login = async (email, password) => {
-  setLoading(true);
-  setError(null);
-  try {
-    const response = await AuthAPI.login(email, password);
-    
-    if (!response.success) {
-      const errorMessage = response.error?.message || 'Failed to login';
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
-    }
-    
-    const { access, refresh, user: userData } = response;
-
-    if (!access) {
-      setError('No access token returned from backend');
-      return { success: false, error: 'No access token returned from backend' };
-    }
-
-    // Store token first
-    setToken(access);
-    
-    // Fetch user profile to get role
-    try {
-      const userProfile = await AuthAPI.getUserProfile();
-      if (userProfile.success) {
-        // Add role to user data
-        const userWithRole = { ...userData, role: userProfile.data.role };
-        setUser(userWithRole);
-        await storeAuthData(userWithRole, access, refresh);
-      } else {
-        setUser(userData);
-        await storeAuthData(userData, access, refresh);
+      if (!response.ok) {
+        throw new Error(data.error || "Login failed")
       }
-    } catch (profileError) {
-      console.error('Error fetching user profile:', profileError);
-      setUser(userData);
-      await storeAuthData(userData, access, refresh);
+
+      // Save token and user data
+      await AsyncStorage.setItem("authToken", data.token)
+      await AsyncStorage.setItem("userData", JSON.stringify(data.user))
+
+      setToken(data.token)
+      setUser(data.user)
+
+      return { success: true, user: data.user }
+    } catch (err) {
+      const errorMessage = err.message || "Login failed"
+      setError(errorMessage)
+      return { success: false, error: errorMessage }
+    } finally {
+      setIsLoading(false)
     }
+  }, [])
 
-    return { success: true };
-  } catch (e) {
-    console.error('Login error:', e);
-    const errorMessage = e.message || 'Failed to login';
-    setError(errorMessage);
-    return { success: false, error: errorMessage };
-  } finally {
-    setLoading(false);
-  }
-};
+  // Logout function
+  const logout = useCallback(async () => {
+    setIsLoading(true)
 
-const register = async (userData) => {
-  setLoading(true);
-  setError(null);
-  try {
-    const response = await AuthAPI.register(userData);
-    return { success: true, data: response };
-  } catch (e) {
-    setError(e.message || 'Failed to register');
-    return { success: false, error: e.message || 'Failed to register' };
-  } finally {
-    setLoading(false);
-  }
-};
+    try {
+      await AsyncStorage.removeItem("authToken")
+      await AsyncStorage.removeItem("userData")
 
-const logout = async () => {
-  setLoading(true);
-  try {
-    await AuthAPI.logout();
-  } catch (e) {
-    console.error('Logout API error', e);
-  } finally {
-    setUser(null);
-    setToken(null);
-    await clearAuthData();
-    setLoading(false);
-  }
-};
-
-const refreshToken = async () => {
-  try {
-    const storedRefresh = await AsyncStorage.getItem(REFRESH_KEY);
-    if (!storedRefresh) return false;
-
-    const response = await AuthAPI.refreshToken(storedRefresh);
-    const { access } = response;
-
-    if (access) {
-      setToken(access);
-      await AsyncStorage.setItem(TOKEN_KEY, access);
-      return true;
+      setToken(null)
+      setUser(null)
+      setError(null)
+    } catch (err) {
+      console.error("Logout failed", err)
+    } finally {
+      setIsLoading(false)
     }
-    return false;
-  } catch (e) {
-    console.error('Token refresh failed:', e);
-    await logout();
-    return false;
+  }, [])
+
+  // Signup function
+  const signup = useCallback(async (email, password, name) => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch("http://192.168.0.101:3000/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password, name }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Signup failed")
+      }
+
+      // Save token and user data
+      await AsyncStorage.setItem("authToken", data.token)
+      await AsyncStorage.setItem("userData", JSON.stringify(data.user))
+
+      setToken(data.token)
+      setUser(data.user)
+
+      return { success: true, user: data.user }
+    } catch (err) {
+      const errorMessage = err.message || "Signup failed"
+      setError(errorMessage)
+      return { success: false, error: errorMessage }
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // Refresh token function
+  const refreshToken = useCallback(async () => {
+    try {
+      const response = await fetch("http://192.168.0.101:3000/api/auth/refresh", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Token refresh failed")
+      }
+
+      await AsyncStorage.setItem("authToken", data.token)
+      setToken(data.token)
+
+      return { success: true }
+    } catch (err) {
+      console.error("Token refresh failed", err)
+      // If refresh fails, logout the user
+      await logout()
+      return { success: false }
+    }
+  }, [token, logout])
+
+  const value = {
+    user,
+    token,
+    isLoading,
+    error,
+    login,
+    logout,
+    signup,
+    refreshToken,
+    isAuthenticated: !!token,
   }
-};
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        token,
-        loading,
-        error,
-        login,
-        register,
-        logout,
-        refreshToken,
-        isAuthenticated: !!user && !!token,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
-};
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
 
+// Custom hook to use Auth Context
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within an AuthProvider');
-  return context;
-};
-
-export default AuthContext;
+  const context = React.useContext(AuthContext)
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider")
+  }
+  return context
+}

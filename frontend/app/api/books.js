@@ -1,31 +1,63 @@
+import { apiGet, apiPost, apiPatch, apiDelete } from "../utils/api"
+
+const apiBaseUrl = "http://192.168.0.101:3000"
+
 export const BooksAPI = {
   // Basic book operations
-  list: () => apiGet("/api/books/"),
-  getById: (id) => apiGet(`/api/books/${id}/`),
-  create: (data) => apiPost("/api/books/", data),
-  update: (id, data) => apiPatch(`/api/books/${id}/`, data),
-  delete: (id) => apiDelete(`/api/books/${id}/`),
+  get: (api) => fetched(api, "GET"),
+  getById: (api) => fetched(api, "GET"),
+  create: (api,data) =>  fetched(api, "POST", data),
+update: (api, data) =>fetched(api, "PATCH", data),
+  delete: (api) => fetched(api, "DELETE"),
 
   // Search and filter operations
-  search: (query) => apiGet(`/api/books/?search=${encodeURIComponent(query)}`),
+  search: (query) => apiGet(`/books/?search=${encodeURIComponent(query)}`),
   filter: (params) => {
     const queryString = Object.entries(params)
       .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-      .join('&');
-    return apiGet(`/api/books/?${queryString}`);
+      .join("&")
+    return apiGet(`/books/?${queryString}`)
   },
 
   // Writer-specific operations
-  getMyBooks: () => apiGet("/api/books/mybooks/"),
-  getAuthorBooks: (authorId) => apiGet(`/api/books/?author=${authorId}`),  // <-- added function
+  getMyBooks: () => fetch("/books/mybooks/"),
+  getAuthorBooks: (authorId) => fetch(`/books/?author=${authorId}`),
+    deleteBook: () => fetch("/books/mybooks/"),
 
   // Chapter management operations
-  getChapters: (bookId) => apiGet(`/api/books/${bookId}/chapters/`),
-  createChapter: (bookId, data) => apiPost(`/api/books/${bookId}/chapters/`, data),
-  updateChapter: (bookId, chapterId, data) => apiPatch(`/api/books/${bookId}/chapters/${chapterId}/`, data),
-  deleteChapter: (bookId, chapterId) => apiDelete(`/api/books/${bookId}/chapters/${chapterId}/`),
-  reorderChapters: (bookId, chapterOrder) => apiPost(`/api/books/${bookId}/chapters/reorder/`, { chapter_order: chapterOrder }),
+  getChapters: (bookId) => apiGet(`/books/${bookId}/chapters/`),
+  createChapter: (bookId, data) => apiPost(`/books/${bookId}/chapters/`, data),
+  updateChapter: (bookId, chapterId, data) => apiPatch(`/books/${bookId}/chapters/${chapterId}/`, data),
+  deleteChapter: (bookId, chapterId) => apiDelete(`/books/${bookId}/chapters/${chapterId}/`),
+  reorderChapters: (bookId, chapterOrder) =>
+    apiPost(`/books/${bookId}/chapters/reorder/`, { chapter_order: chapterOrder }),
 
   // Premium content operations
-  getPremiumContent: (bookId) => apiGet(`/api/books/${bookId}/premium/`),
-};
+  getPremiumContent: (bookId) => apiGet(`/books/${bookId}/premium/`),
+
+
+}
+
+async function fetched(api, method, data) {
+  console.log(`Making ${method} request to ${api} with data:`, data);
+  const options = {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+    },
+  };
+  if (data) {
+    options.body = JSON.stringify(data);
+  }
+
+  const response = await fetch(`${apiBaseUrl}/${api}`, options);
+
+  if (!response.ok) {
+    throw new Error(`Request failed: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+
+

@@ -1,65 +1,63 @@
-import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  ActivityIndicator,
-  FlatList,
-  StyleSheet,
-  TouchableOpacity,
-  Image
-} from "react-native";
-import { MaterialIcons } from '@expo/vector-icons';
-import { BooksAPI } from "../api/books";
-import { useNavigation } from "@react-navigation/native";
+"use client"
+
+import { useEffect, useState } from "react"
+import { View, Text, ActivityIndicator, FlatList, StyleSheet, TouchableOpacity } from "react-native"
+import { MaterialIcons } from "@expo/vector-icons"
+import { useNavigation } from "@react-navigation/native"
+import { BooksAPI } from "../api/books"
+import { useAuth } from "../context/AuthContext"
 
 export default function HomeScreen() {
-  const navigation = useNavigation();
-  const [books, setBooks] = useState([]);
-  const [trendingBooks, setTrendingBooks] = useState([]);
-  const [recentBooks, setRecentBooks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const navigation = useNavigation()
+  const { user } = useAuth()
+  const [books, setBooks] = useState([])
+  const [trendingBooks, setTrendingBooks] = useState([])
+  const [recentBooks, setRecentBooks] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   const fetchBooks = async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true)
+    setError(null)
 
     try {
       // In a real implementation, we would use the actual API
       // const data = await BooksAPI.list();
-      
+
       // Mock data for demonstration
-      setTimeout(() => {
-        const mockBooks = [
-          { id: 1, title: "The Great Adventure", author: "John Smith", preview: "Once upon a time in a land far away...", isPremium: false, trending: true, recentlyAdded: false },
-          { id: 2, title: "Understanding the Universe", author: "Jane Doe", preview: "The cosmos is vast and mysterious...", isPremium: true, trending: true, recentlyAdded: true },
-          { id: 3, title: "Mystery of the Lost City", author: "Robert Johnson", preview: "The ancient civilization disappeared without a trace...", isPremium: false, trending: false, recentlyAdded: true },
-          { id: 4, title: "Business Strategies", author: "Emily Williams", preview: "Successful entrepreneurs share these traits...", isPremium: true, trending: false, recentlyAdded: false },
-          { id: 5, title: "Cooking Masterclass", author: "Chef Michael", preview: "The secret to perfect pasta is...", isPremium: false, trending: true, recentlyAdded: false },
-          { id: 6, title: "Digital Art Fundamentals", author: "Sarah Chen", preview: "Color theory is essential for creating...", isPremium: true, trending: false, recentlyAdded: true },
-        ];
-        
-        setBooks(mockBooks);
-        setTrendingBooks(mockBooks.filter(book => book.trending));
-        setRecentBooks(mockBooks.filter(book => book.recentlyAdded));
-        setLoading(false);
-      }, 1000);
+      const response = await BooksAPI.get(`books/read/finished`)
+      const bookss = response.data.map((book, index) => ({
+        id: index + 1,
+        _id: book._id,
+        title: book.title,
+        author: book.author,
+        preview: book.previewText,
+        isPremium: book.isPremium,
+        trending: book.trending || false,
+        recentlyAdded: book.recentlyAdded,
+      }))
+
+      console.log(bookss)
+
+      // console.log(books, "books from api");
+
+      setBooks(bookss)
+      setTrendingBooks(bookss.filter((book) => book.trending))
+      setRecentBooks(bookss.filter((book) => book.recentlyAdded))
+      setLoading(false)
     } catch (err) {
-      console.error("Error fetching books:", err);
-      setError("Failed to load books. Please check your connection.");
-      setLoading(false);
+      console.error("Error fetching books:", err)
+      setError("Failed to load books. Please check your connection.")
+      setLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    fetchBooks();
-  }, []);
+    fetchBooks()
+  }, [])
 
   const renderBook = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.bookCard}
-      onPress={() => navigation.navigate('BookDetail', { bookId: item.id })}
-    >
+    <TouchableOpacity style={styles.bookCard} onPress={() => navigation.navigate("BookDetails", { bookId: item._id })}>
       <View style={styles.bookContent}>
         <View style={styles.bookHeader}>
           <Text style={styles.title}>{item.title}</Text>
@@ -70,8 +68,10 @@ export default function HomeScreen() {
           )}
         </View>
         <Text style={styles.author}>by {item.author}</Text>
-        <Text style={styles.preview} numberOfLines={2}>{item.preview}</Text>
-        
+        <Text style={styles.preview} numberOfLines={2}>
+          {item.preview}
+        </Text>
+
         {(item.trending || item.recentlyAdded) && (
           <View style={styles.tagsContainer}>
             {item.trending && (
@@ -90,13 +90,13 @@ export default function HomeScreen() {
         )}
       </View>
     </TouchableOpacity>
-  );
-  
+  )
+
   const renderSectionHeader = (title) => (
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>{title}</Text>
     </View>
-  );
+  )
 
   if (loading) {
     return (
@@ -104,7 +104,7 @@ export default function HomeScreen() {
         <ActivityIndicator size="large" color="#6200ee" />
         <Text>Loading books...</Text>
       </View>
-    );
+    )
   }
 
   if (error) {
@@ -115,11 +115,16 @@ export default function HomeScreen() {
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>
-    );
+    )
   }
 
   return (
     <View style={styles.container}>
+      {user && (
+        <View style={styles.userGreeting}>
+          <Text style={styles.greetingText}>Welcome, {user.name}!</Text>
+        </View>
+      )}
       <FlatList
         data={books}
         keyExtractor={(item) => item.id.toString()}
@@ -129,7 +134,7 @@ export default function HomeScreen() {
           <>
             {trendingBooks.length > 0 && (
               <>
-                {renderSectionHeader('Trending Now')}
+                {renderSectionHeader("Trending Now")}
                 <FlatList
                   horizontal
                   data={trendingBooks}
@@ -140,10 +145,10 @@ export default function HomeScreen() {
                 />
               </>
             )}
-            
+
             {recentBooks.length > 0 && (
               <>
-                {renderSectionHeader('Recently Added')}
+                {renderSectionHeader("Recently Added")}
                 <FlatList
                   horizontal
                   data={recentBooks}
@@ -154,8 +159,8 @@ export default function HomeScreen() {
                 />
               </>
             )}
-            
-            {renderSectionHeader('All Books')}
+
+            {renderSectionHeader("All Books")}
           </>
         }
         ListEmptyComponent={
@@ -167,19 +172,19 @@ export default function HomeScreen() {
         }
       />
     </View>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: "#f5f5f5" 
+  container: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
   },
-  centered: { 
-    flex: 1, 
-    justifyContent: "center", 
-    alignItems: "center", 
-    padding: 16 
+  centered: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
   },
   listContainer: {
     padding: 16,
@@ -218,16 +223,16 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 4,
   },
-  title: { 
-    fontSize: 16, 
+  title: {
+    fontSize: 16,
     fontWeight: "bold",
     flex: 1,
     marginRight: 8,
   },
-  author: { 
-    fontSize: 14, 
-    color: "#666", 
-    marginBottom: 8 
+  author: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 8,
   },
   preview: {
     fontSize: 14,
@@ -269,21 +274,21 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginLeft: 4,
   },
-  errorText: { 
-    color: "red", 
-    fontSize: 16, 
-    marginBottom: 12, 
-    textAlign: "center" 
+  errorText: {
+    color: "red",
+    fontSize: 16,
+    marginBottom: 12,
+    textAlign: "center",
   },
-  retryButton: { 
-    backgroundColor: "#6200ee", 
-    paddingHorizontal: 24, 
-    paddingVertical: 12, 
-    borderRadius: 8 
+  retryButton: {
+    backgroundColor: "#6200ee",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
   },
-  retryButtonText: { 
-    color: "#fff", 
-    fontWeight: "bold" 
+  retryButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
   },
   emptyContainer: {
     padding: 32,
@@ -301,4 +306,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: "center",
   },
-});
+  userGreeting: {
+    backgroundColor: "#0A84FF",
+    padding: 16,
+    paddingTop: 12,
+  },
+  greetingText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#fff",
+  },
+})
