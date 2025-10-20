@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,93 +11,98 @@ import {
   ActivityIndicator,
   Alert,
   SafeAreaView,
-} from "react-native"
-import { MaterialIcons } from "@expo/vector-icons"
-import { BooksAPI } from "../api/books"
-import { useNavigation, useRoute } from "@react-navigation/native"
-import GenreDropdown from "../components/GenreDropdown"
+} from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import { BooksAPI } from "../api/books";
+import { useNavigation, useRoute } from "@react-navigation/native";
+import GenreDropdown from "../components/GenreDropdown";
 
 export default function EditBookScreen() {
-  const navigation = useNavigation()
-  const route = useRoute()
-  const { bookId, fetchBooks } = route.params
-
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { bookId, fetchBooks } = route.params;
+  const [book, setBook] = useState();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     genre: [],
     author: "",
-  })
+  });
 
   useEffect(() => {
-    fetchBookDetails()
-  }, [])
+    fetchBookDetails();
+  }, []);
 
   const fetchBookDetails = async () => {
     try {
-      const response = await BooksAPI.getById(`books/readbyid/${bookId}`)
-      const book = response.data
-      console.log("Fetched book details:", book)
+      const response = await BooksAPI.getById(`books/readbyid/${bookId}`);
+      const book = response.data;
+      console.log("Fetched book details:", book);
       setFormData({
         title: book.title || "",
         description: book.previewText || "",
-        genre: Array.isArray(book.genre) ? book.genre : book.genre ? [book.genre] : [],
-        author: book.author || "",
-      })
+        genre: Array.isArray(book.genre)
+          ? book.genre
+          : book.genre
+          ? [book.genre]
+          : [],
+        author: book.author._id || "",
+      });
+      setBook(book);
     } catch (error) {
-      console.error("Error fetching book details:", error)
-      Alert.alert("Error", "Failed to load book details")
+      console.error("Error fetching book details:", error);
+      Alert.alert("Error", "Failed to load book details");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
-    }))
-  }
+    }));
+  };
 
   const handleGenreChange = (genres) => {
     setFormData((prev) => ({
       ...prev,
       genre: genres,
-    }))
-  }
+    }));
+  };
 
   const handleSaveBook = async () => {
     if (!formData.title.trim()) {
-      Alert.alert("Error", "Please enter a book title")
-      return
+      Alert.alert("Error", "Please enter a book title");
+      return;
     }
 
     if (formData.genre.length === 0) {
-      Alert.alert("Error", "Please select at least one genre")
-      return
+      Alert.alert("Error", "Please select at least one genre");
+      return;
     }
 
-    setSaving(true)
+    setSaving(true);
     try {
       await BooksAPI.update(`books/read/${bookId}`, {
         title: formData.title,
         previewText: formData.description,
         genre: formData.genre,
         author: formData.author,
-      })
+      });
 
-      Alert.alert("Success", "Book updated successfully!")
-      fetchBooks()
-      navigation.goBack()
+      Alert.alert("Success", "Book updated successfully!");
+      fetchBooks();
+      navigation.goBack();
     } catch (error) {
-      console.error("Error updating book:", error)
-      Alert.alert("Error", "Failed to update book")
+      console.error("Error updating book:", error);
+      Alert.alert("Error", "Failed to update book");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -106,7 +111,7 @@ export default function EditBookScreen() {
           <ActivityIndicator size="large" color="#6200ee" />
         </View>
       </SafeAreaView>
-    )
+    );
   }
 
   return (
@@ -135,16 +140,19 @@ export default function EditBookScreen() {
           <Text style={styles.label}>Author</Text>
           <TextInput
             style={styles.input}
-            placeholder="Enter author name"
-            value={formData.author}
-            onChangeText={(value) => handleInputChange("author", value)}
+            editable={false}
+            selectTextOnFocus={false}
+            value={book.author.name || ""}
             placeholderTextColor="#999"
           />
         </View>
 
         <View style={styles.formGroup}>
           <Text style={styles.label}>Genres *</Text>
-          <GenreDropdown selectedGenres={formData.genre} onGenresChange={handleGenreChange} />
+          <GenreDropdown
+            selectedGenres={formData.genre}
+            onGenresChange={handleGenreChange}
+          />
         </View>
 
         <View style={styles.formGroup}>
@@ -177,7 +185,7 @@ export default function EditBookScreen() {
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -250,4 +258,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginLeft: 8,
   },
-})
+});

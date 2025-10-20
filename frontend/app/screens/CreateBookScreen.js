@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { useState } from "react"
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -11,51 +11,57 @@ import {
   ActivityIndicator,
   Alert,
   SafeAreaView,
-} from "react-native"
-import { MaterialIcons } from "@expo/vector-icons"
-import { BooksAPI } from "../api/books"
-import { useNavigation, useRoute } from "@react-navigation/native"
-import GenreDropdown from "../components/GenreDropdown"
+} from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import { BooksAPI } from "../api/books";
+import { useNavigation, useRoute } from "@react-navigation/native";
+import GenreDropdown from "../components/GenreDropdown";
+import { useAuth } from "../context/AuthContext";
 
 export default function CreateBookScreen() {
-    const navigation = useNavigation()
-    const route = useRoute()
-    const { fetchBooks } = route.params
-  const [loading, setLoading] = useState(false)
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { fetchBooks } = route.params;
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     genre: "",
     author: "",
-  })
+  });
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
-    }))
-  }
+    }));
+  };
 
-    const handleGenreChange = (genres) => {
+  const handleGenreChange = (genres) => {
     setFormData((prev) => ({
       ...prev,
       genre: genres,
-    }))
-  }
+    }));
+  };
+
+  useEffect(() => {
+    if (user?.id) {
+      setFormData((prev) => ({ ...prev, author: user.id }));
+    }
+  }, [user]);
 
   const handleCreateBook = async () => {
     if (!formData.title.trim()) {
-      Alert.alert("Error", "Please enter a book title")
-      return
+      Alert.alert("Error", "Please enter a book title");
+      return;
     }
 
-        if (formData.genre.length === 0) {
-      Alert.alert("Error", "Please select at least one genre")
-      return
+    if (formData.genre.length === 0) {
+      Alert.alert("Error", "Please select at least one genre");
+      return;
     }
-
-
-    setLoading(true)
+    setLoading(true);
     try {
       const response = await BooksAPI.create("books/create", {
         title: formData.title,
@@ -63,18 +69,18 @@ export default function CreateBookScreen() {
         genre: formData.genre,
         author: formData.author,
         status: "draft",
-      })
-      fetchBooks()
+      });
+      fetchBooks();
 
-      Alert.alert("Success", "Book created successfully!")
-      navigation.goBack()
+      Alert.alert("Success", "Book created successfully!");
+      navigation.goBack();
     } catch (error) {
-      console.error("Error creating book:", error)
-      Alert.alert("Error", "Failed to create book")
+      console.error("Error creating book:", error);
+      Alert.alert("Error", "Failed to create book");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -101,17 +107,20 @@ export default function CreateBookScreen() {
         <View style={styles.formGroup}>
           <Text style={styles.label}>Author</Text>
           <TextInput
-            style={styles.input}
-            placeholder="Enter author name"
-            value={formData.author}
-            onChangeText={(value) => handleInputChange("author", value)}
+            style={[styles.input, { color: "#555" }]}
+            value={user.name}
+            editable={false}
+            selectTextOnFocus={false}
             placeholderTextColor="#999"
           />
         </View>
 
         <View style={styles.formGroup}>
           <Text style={styles.label}>Genres *</Text>
-          <GenreDropdown selectedGenres={formData.genre} onGenresChange={handleGenreChange} />
+          <GenreDropdown
+            selectedGenres={formData.genre}
+            onGenresChange={handleGenreChange}
+          />
         </View>
 
         <View style={styles.formGroup}>
@@ -144,7 +153,7 @@ export default function CreateBookScreen() {
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -212,4 +221,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginLeft: 8,
   },
-})
+});

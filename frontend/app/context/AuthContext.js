@@ -1,157 +1,158 @@
-"use client"
+"use client";
 
-import React, { createContext, useState, useEffect, useCallback } from "react"
-import AsyncStorage from "@react-native-async-storage/async-storage"
+import React, { createContext, useState, useEffect, useCallback } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_URL } from "@env";
 
-export const AuthContext = createContext()
+export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null)
-  const [token, setToken] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Check if user is already logged in on app start
   useEffect(() => {
     const bootstrapAsync = async () => {
       try {
-        const savedToken = await AsyncStorage.getItem("authToken")
-        const savedUser = await AsyncStorage.getItem("userData")
+        const savedToken = await AsyncStorage.getItem("authToken");
+        const savedUser = await AsyncStorage.getItem("userData");
 
         if (savedToken && savedUser) {
-          setToken(savedToken)
-          setUser(JSON.parse(savedUser))
+          setToken(savedToken);
+          setUser(JSON.parse(savedUser));
         }
       } catch (e) {
-        console.error("Failed to restore token", e)
+        console.error("Failed to restore token", e);
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
-    }
+    };
 
-    bootstrapAsync()
-  }, [])
+    bootstrapAsync();
+  }, []);
 
   // Login function
   const login = useCallback(async (email, password) => {
-    setIsLoading(true)
-    setError(null)
+    setIsLoading(true);
+    setError(null);
 
     try {
-      const response = await fetch("http://192.168.0.101:3000/api/auth/login", {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Login failed")
+        throw new Error(data.error || "Login failed");
       }
 
       // Save token and user data
-      await AsyncStorage.setItem("authToken", data.token)
-      await AsyncStorage.setItem("userData", JSON.stringify(data.user))
+      await AsyncStorage.setItem("authToken", data.token);
+      await AsyncStorage.setItem("userData", JSON.stringify(data.user));
 
-      setToken(data.token)
-      setUser(data.user)
+      setToken(data.token);
+      setUser(data.user);
 
-      return { success: true, user: data.user }
+      return { success: true, user: data.user };
     } catch (err) {
-      const errorMessage = err.message || "Login failed"
-      setError(errorMessage)
-      return { success: false, error: errorMessage }
+      const errorMessage = err.message || "Login failed";
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }, [])
+  }, []);
 
   // Logout function
   const logout = useCallback(async () => {
-    setIsLoading(true)
+    setIsLoading(true);
 
     try {
-      await AsyncStorage.removeItem("authToken")
-      await AsyncStorage.removeItem("userData")
+      await AsyncStorage.removeItem("authToken");
+      await AsyncStorage.removeItem("userData");
 
-      setToken(null)
-      setUser(null)
-      setError(null)
+      setToken(null);
+      setUser(null);
+      setError(null);
     } catch (err) {
-      console.error("Logout failed", err)
+      console.error("Logout failed", err);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }, [])
+  }, []);
 
   // Signup function
   const signup = useCallback(async (email, password, name) => {
-    setIsLoading(true)
-    setError(null)
+    setIsLoading(true);
+    setError(null);
 
     try {
-      const response = await fetch("http://192.168.0.101:3000/api/auth/signup", {
+      const response = await fetch(`${API_URL}/api/auth/signup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password, name }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Signup failed")
+        throw new Error(data.error || "Signup failed");
       }
 
       // Save token and user data
-      await AsyncStorage.setItem("authToken", data.token)
-      await AsyncStorage.setItem("userData", JSON.stringify(data.user))
+      await AsyncStorage.setItem("authToken", data.token);
+      await AsyncStorage.setItem("userData", JSON.stringify(data.user));
 
-      setToken(data.token)
-      setUser(data.user)
+      setToken(data.token);
+      setUser(data.user);
 
-      return { success: true, user: data.user }
+      return { success: true, user: data.user };
     } catch (err) {
-      const errorMessage = err.message || "Signup failed"
-      setError(errorMessage)
-      return { success: false, error: errorMessage }
+      const errorMessage = err.message || "Signup failed";
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }, [])
+  }, []);
 
   // Refresh token function
   const refreshToken = useCallback(async () => {
     try {
-      const response = await fetch("http://192.168.0.101:3000/api/auth/refresh", {
+      const response = await fetch(`${API_URL}/api/auth/refresh`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Token refresh failed")
+        throw new Error(data.error || "Token refresh failed");
       }
 
-      await AsyncStorage.setItem("authToken", data.token)
-      setToken(data.token)
+      await AsyncStorage.setItem("authToken", data.token);
+      setToken(data.token);
 
-      return { success: true }
+      return { success: true };
     } catch (err) {
-      console.error("Token refresh failed", err)
+      console.error("Token refresh failed", err);
       // If refresh fails, logout the user
-      await logout()
-      return { success: false }
+      await logout();
+      return { success: false };
     }
-  }, [token, logout])
+  }, [token, logout]);
 
   const value = {
     user,
@@ -163,16 +164,16 @@ export const AuthProvider = ({ children }) => {
     signup,
     refreshToken,
     isAuthenticated: !!token,
-  }
+  };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-}
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
 
 // Custom hook to use Auth Context
 export const useAuth = () => {
-  const context = React.useContext(AuthContext)
+  const context = React.useContext(AuthContext);
   if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider")
+    throw new Error("useAuth must be used within an AuthProvider");
   }
-  return context
-}
+  return context;
+};

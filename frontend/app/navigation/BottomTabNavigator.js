@@ -1,25 +1,25 @@
-"use client"
-import { useState, useEffect } from "react"
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native"
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs"
-import { MaterialIcons } from "@expo/vector-icons"
-import { useAuth } from "../context/AuthContext"
+"use client";
+import { useState, useEffect } from "react";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { MaterialIcons } from "@expo/vector-icons";
+import { useAuth } from "../context/AuthContext";
 
 // Import all screens
-import HomeScreen from "../screens/HomeScreen"
-import ExploreScreen from "../screens/ExploreScreen"
-import LibraryScreen from "../screens/LibraryScreen"
-import WriterScreen from "../screens/WriterScreen"
-import NotificationsScreen from "../screens/NotificationsScreen"
-import ProfileScreen from "../screens/ProfileScreen"
+import HomeScreen from "../screens/HomeScreen";
+import ExploreScreen from "../screens/ExploreScreen";
+import LibraryScreen from "../screens/LibraryScreen";
+import WriterScreen from "../screens/WriterScreen";
+import NotificationsScreen from "../screens/NotificationsScreen";
+import ProfileScreen from "../screens/ProfileScreen";
 
-import ManageChaptersScreen from "../screens/ManageChaptersScreen"
-import BookDetailScreen from "../screens/BookDetailScreen"
-import CreateBookScreen from "../screens/CreateBookScreen"
-import EditBookScreen from "../screens/EditBookScreen"
-import { BooksAPI } from "../api/books"
+import ManageChaptersScreen from "../screens/ManageChaptersScreen";
+import BookDetailScreen from "../screens/BookDetailScreen";
+import CreateBookScreen from "../screens/CreateBookScreen";
+import EditBookScreen from "../screens/EditBookScreen";
+import { BooksAPI } from "../api/books";
 
-const Tab = createBottomTabNavigator()
+const Tab = createBottomTabNavigator();
 
 // Theme colors
 const COLORS = {
@@ -30,33 +30,36 @@ const COLORS = {
   text: "#212121",
   border: "#e0e0e0",
   notification: "#f50057",
-}
+};
 
 const HeaderWithAvatar = ({ navigation }) => {
-  const { user } = useAuth()
-
+  const { user } = useAuth();
 
   // Get first letter of user name for avatar
   const getInitial = () => {
-    return user?.name ? user.name.charAt(0).toUpperCase() : "U"
-  }
+    return user?.name ? user.name.charAt(0).toUpperCase() : "U";
+  };
 
   return (
     <View style={styles.headerContainer}>
       <Text style={styles.headerTitle}>BookCircle</Text>
-      <TouchableOpacity style={styles.avatarButton} onPress={() => navigation.navigate("Profile")}>
+      <TouchableOpacity
+        style={styles.avatarButton}
+        onPress={() => navigation.navigate("Profile")}
+      >
         <View style={styles.avatarSmall}>
           <Text style={styles.avatarText}>{getInitial()}</Text>
         </View>
       </TouchableOpacity>
     </View>
-  )
-}
+  );
+};
 
 export default function BottomTabNavigator({ navigation }) {
-  const [unreadCount, setUnreadCount] = useState(0)
-    const[finishedBooks, setFinishedBooks] = useState([])
-  const { user } = useAuth()
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [finishedBooks, setFinishedBooks] = useState([]);
+  const [error, setError] = useState(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     // Simulate fetching unread notifications count
@@ -64,21 +67,26 @@ export default function BottomTabNavigator({ navigation }) {
     const fetchUnreadCount = () => {
       // Mock data - in production this would be an API call
       setTimeout(() => {
-        setUnreadCount(2) // Set to a static number for demonstration
-      }, 1000)
-    }
+        setUnreadCount(2); // Set to a static number for demonstration
+      }, 1000);
+    };
 
-    fetchUnreadCount()
+    fetchUnreadCount();
 
     // Set up a refresh interval (optional)
-    const intervalId = setInterval(fetchUnreadCount, 60000) // Refresh every minute
+    const intervalId = setInterval(fetchUnreadCount, 60000); // Refresh every minute
 
-    return () => clearInterval(intervalId)
-  }, [])
+    return () => clearInterval(intervalId);
+  }, []);
 
-      async function fetchAllBooks(){
-      try{
-const response = await BooksAPI.get(`books/read/finished`)
+  async function fetchAllBooks() {
+    try {
+      const response = await BooksAPI.get(`books/read/finished`);
+      if (response.data.length === 0) {
+        setError("No finished books found.");
+        setFinishedBooks([]);
+        return;
+      }
       const bookss = response.data.map((book, index) => ({
         id: index + 1,
         _id: book._id,
@@ -89,32 +97,32 @@ const response = await BooksAPI.get(`books/read/finished`)
         trending: book.trending || false,
         recentlyAdded: book.recentlyAdded,
         genre: book.genre,
-      }))
-      setFinishedBooks(bookss)
-      }catch(error){
-        console.error("Error fetching all books in BottomTabNavigator:", error);
-      }
+      }));
+      setFinishedBooks(bookss);
+    } catch (error) {
+      console.error("Error fetching all books in BottomTabNavigator:", error);
     }
+  }
 
   return (
     <Tab.Navigator
       initialRouteName="Home"
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName
+          let iconName;
 
           if (route.name === "Home") {
-            iconName = "home"
+            iconName = "home";
           } else if (route.name === "Explore") {
-            iconName = "search"
+            iconName = "search";
           } else if (route.name === "Library") {
-            iconName = "book"
+            iconName = "book";
           } else if (route.name === "Writer") {
-            iconName = "edit"
+            iconName = "edit";
           } else if (route.name === "Notifications") {
-            iconName = "notifications"
+            iconName = "notifications";
           } else if (route.name === "Profile") {
-            iconName = "person"
+            iconName = "person";
           }
 
           // Return the icon with or without a badge
@@ -122,12 +130,14 @@ const response = await BooksAPI.get(`books/read/finished`)
             <View style={{ width: size, height: size, alignItems: "center" }}>
               <MaterialIcons name={iconName} size={size} color={color} />
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
+                <Text style={styles.badgeText}>
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </Text>
               </View>
             </View>
           ) : (
             <MaterialIcons name={iconName} size={size} color={color} />
-          )
+          );
         },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.inactive,
@@ -154,26 +164,28 @@ const response = await BooksAPI.get(`books/read/finished`)
           color: COLORS.text,
         },
         header: ({ navigation: headerNav }) =>
-          route.name === "Home" ? <HeaderWithAvatar navigation={headerNav} /> : undefined,
+          route.name === "Home" ? (
+            <HeaderWithAvatar navigation={headerNav} />
+          ) : undefined,
       })}
     >
-<Tab.Screen name="Home">
-  {() => (
-    <HomeScreen
-      finishedBooks={finishedBooks}
-      fetchAllBooks={fetchAllBooks}
-    />
-  )}
-</Tab.Screen>
+      <Tab.Screen name="Home">
+        {() => (
+          <HomeScreen
+            finishedBooks={finishedBooks}
+            fetchAllBooks={fetchAllBooks}
+          />
+        )}
+      </Tab.Screen>
 
-<Tab.Screen name="Explore">
-  {() => (
-    <ExploreScreen
-      finishedBooks={finishedBooks}
-      fetchAllBooks={fetchAllBooks}
-    />
-  )}
-</Tab.Screen>
+      <Tab.Screen name="Explore">
+        {() => (
+          <ExploreScreen
+            finishedBooks={finishedBooks}
+            fetchAllBooks={fetchAllBooks}
+          />
+        )}
+      </Tab.Screen>
       <Tab.Screen
         name="Library"
         component={LibraryScreen}
@@ -182,12 +194,8 @@ const response = await BooksAPI.get(`books/read/finished`)
         }}
       />
       <Tab.Screen name="Writer">
-  {() => (
-    <WriterScreen
-      fetchAllBooks={fetchAllBooks}
-    />
-  )}
-</Tab.Screen>
+        {() => <WriterScreen fetchAllBooks={fetchAllBooks} />}
+      </Tab.Screen>
       <Tab.Screen
         name="Notifications"
         component={NotificationsScreen}
@@ -222,7 +230,7 @@ const response = await BooksAPI.get(`books/read/finished`)
       <Tab.Screen
         name="EditBook"
         component={EditBookScreen}
-        options={{ 
+        options={{
           title: "Edit Book",
           tabBarButton: () => null,
         }}
@@ -236,7 +244,7 @@ const response = await BooksAPI.get(`books/read/finished`)
         }}
       />
     </Tab.Navigator>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -300,4 +308,4 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
   },
-})
+});

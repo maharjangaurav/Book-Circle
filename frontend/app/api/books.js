@@ -1,42 +1,46 @@
-import { apiGet, apiPost, apiPatch, apiDelete } from "../utils/api"
-
-const apiBaseUrl = "http://192.168.0.101:3000"
+import { apiGet, apiPost, apiPatch, apiDelete } from "../utils/api";
+import { API_URL } from "@env";
 
 export const BooksAPI = {
   // Basic book operations
   get: (api) => fetched(api, "GET"),
   getById: (api) => fetched(api, "GET"),
-  create: (api,data) =>  fetched(api, "POST", data),
-update: (api, data) =>fetched(api, "PATCH", data),
+  create: (api, data) => fetched(api, "POST", data),
+  update: (api, data) => fetched(api, "PATCH", data),
   delete: (api) => fetched(api, "DELETE"),
 
   // Search and filter operations
   search: (query) => apiGet(`/books/?search=${encodeURIComponent(query)}`),
   filter: (params) => {
     const queryString = Object.entries(params)
-      .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-      .join("&")
-    return apiGet(`/books/?${queryString}`)
+      .map(
+        ([key, value]) =>
+          `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
+      )
+      .join("&");
+    return apiGet(`/books/?${queryString}`);
   },
 
   // Writer-specific operations
   getMyBooks: () => fetch("/books/mybooks/"),
   getAuthorBooks: (authorId) => fetch(`/books/?author=${authorId}`),
-    deleteBook: () => fetch("/books/mybooks/"),
+  deleteBook: () => fetch("/books/mybooks/"),
 
   // Chapter management operations
   getChapters: (bookId) => apiGet(`/books/${bookId}/chapters/`),
   createChapter: (bookId, data) => apiPost(`/books/${bookId}/chapters/`, data),
-  updateChapter: (bookId, chapterId, data) => apiPatch(`/books/${bookId}/chapters/${chapterId}/`, data),
-  deleteChapter: (bookId, chapterId) => apiDelete(`/books/${bookId}/chapters/${chapterId}/`),
+  updateChapter: (bookId, chapterId, data) =>
+    apiPatch(`/books/${bookId}/chapters/${chapterId}/`, data),
+  deleteChapter: (bookId, chapterId) =>
+    apiDelete(`/books/${bookId}/chapters/${chapterId}/`),
   reorderChapters: (bookId, chapterOrder) =>
-    apiPost(`/books/${bookId}/chapters/reorder/`, { chapter_order: chapterOrder }),
+    apiPost(`/books/${bookId}/chapters/reorder/`, {
+      chapter_order: chapterOrder,
+    }),
 
   // Premium content operations
   getPremiumContent: (bookId) => apiGet(`/books/${bookId}/premium/`),
-
-
-}
+};
 
 async function fetched(api, method, data) {
   console.log(`Making ${method} request to ${api} with data:`, data);
@@ -50,7 +54,7 @@ async function fetched(api, method, data) {
     options.body = JSON.stringify(data);
   }
 
-  const response = await fetch(`${apiBaseUrl}/${api}`, options);
+  const response = await fetch(`${API_URL}/${api}`, options);
 
   if (!response.ok) {
     throw new Error(`Request failed: ${response.status}`);
@@ -58,6 +62,3 @@ async function fetched(api, method, data) {
 
   return response.json();
 }
-
-
-

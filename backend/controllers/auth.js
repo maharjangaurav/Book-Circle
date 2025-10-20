@@ -1,9 +1,9 @@
-const express = require("express")
-const router = express.Router()
-const jwt = require("jsonwebtoken")
-const bcrypt = require("bcryptjs")
-const authMiddleware = require("../middleware/authMiddleware")
-const User = require("../models/User")
+const express = require("express");
+const router = express.Router();
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
+const authMiddleware = require("../middleware/authMiddleware");
+const User = require("../models/User");
 
 // Mock user database (replace with real database)
 const users = [
@@ -14,8 +14,7 @@ const users = [
     name: "John Doe",
     role: "reader",
   },
-]
-
+];
 
 async function login(req, res) {
   try {
@@ -41,7 +40,7 @@ async function login(req, res) {
     // 4️⃣ Generate JWT token
     const token = jwt.sign(
       { id: user._id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || "your-secret-key",
+      process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
@@ -57,7 +56,6 @@ async function login(req, res) {
         role: user.role,
       },
     });
-
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ error: "Login failed", message: error.message });
@@ -70,7 +68,9 @@ async function signup(req, res) {
 
     // 1. Validate input
     if (!email || !password || !name) {
-      return res.status(400).json({ error: "Email, password, and name are required" });
+      return res
+        .status(400)
+        .json({ error: "Email, password, and name are required" });
     }
 
     // 2. Check if user already exists
@@ -95,7 +95,7 @@ async function signup(req, res) {
     // 5. Generate JWT token
     const token = jwt.sign(
       { id: newUser._id, email: newUser.email, role: newUser.role },
-      process.env.JWT_SECRET || "your-secret-key",
+      process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
@@ -110,7 +110,6 @@ async function signup(req, res) {
         role: newUser.role,
       },
     });
-
   } catch (error) {
     console.error("Signup error:", error);
     res.status(500).json({ error: "Signup failed", message: error.message });
@@ -119,45 +118,49 @@ async function signup(req, res) {
 
 async function refresh(req, res) {
   try {
-    const user = users.find((u) => u.id === req.user.id)
+    const user = User.find((u) => u._id === req.user.id);
     if (!user) {
-      return res.status(401).json({ error: "User not found" })
+      return res.status(401).json({ error: "User not found" });
     }
 
     // Generate new token
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || "your-secret-key",
-      { expiresIn: "7d" },
-    )
+      { id: user._id, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
     res.json({
       success: true,
       token,
-    })
+    });
   } catch (error) {
-    res.status(500).json({ error: "Token refresh failed", message: error.message })
+    res
+      .status(500)
+      .json({ error: "Token refresh failed", message: error.message });
   }
 }
 
 async function getProfile(req, res) {
   try {
-    const user = users.find((u) => u.id === req.user.id)
+    const user = users.find((u) => u._id === req.user.id);
     if (!user) {
-      return res.status(404).json({ error: "User not found" })
+      return res.status(404).json({ error: "User not found" });
     }
 
     res.json({
       success: true,
       user: {
-        id: user.id,
+        id: user._id,
         email: user.email,
         name: user.name,
         role: user.role,
       },
-    })
+    });
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch profile", message: error.message })
+    res
+      .status(500)
+      .json({ error: "Failed to fetch profile", message: error.message });
   }
 }
 
@@ -166,4 +169,4 @@ module.exports = {
   signup,
   refresh,
   getProfile,
-}
+};
