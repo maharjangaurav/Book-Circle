@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,11 +7,12 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Alert,
-  Image
-} from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { BooksAPI } from '../api/books';
-import { LibraryAPI } from '../api/library';
+  Image,
+} from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import { BooksAPI } from "../api/books";
+import { LibraryAPI } from "../api/library";
+import { API_URL } from "@env";
 
 export default function BookDetailScreen({ route, navigation }) {
   const { bookId } = route.params;
@@ -24,48 +25,33 @@ export default function BookDetailScreen({ route, navigation }) {
   useEffect(() => {
     fetchBookDetails();
     checkLibraryStatus();
-  }, []);
+  }, [bookId]);
 
   const fetchBookDetails = async () => {
     setLoading(true);
     setError(null);
 
     try {
-        const response = await BooksAPI.getById(`books/readbyid/${bookId}`)
-        console.log(response, "book detail response");
-const book = {
-  id: response._id,
-  title: response.title,
-  author: response.author,
-  preview: response.previewText,
-  isPremium: response.isPremium,
-  trending: response.trending || false,
-  recentlyAdded: response.recentlyAdded,
-  description: "This is a detailed description of the book...",
-  published_date: response.createdAt,
-  genre: "Fantasy",
-  rating: 5,
-  coverImage: null,
-};
+      const response = await BooksAPI.getById(`books/readbyid/${bookId}`);
+      const book = {
+        id: response.data._id,
+        title: response.data.title,
+        author: response.data.author?.name || null,
+        preview: response.data.previewText,
+        isPremium: response.data.isPremium,
+        trending: response.data.trending || false,
+        recentlyAdded: response.data.recentlyAdded,
+        description: "This is a detailed description of the book...",
+        published_date: response.data.createdAt,
+        genre: response.data.genre,
+        rating: 5,
+        coverImage: response.data.coverImage,
+      };
 
-        console.log(book)
-        const mockBook = {
-          id: bookId,
-          title: "Book Title " + bookId,
-          author: "Author Name",
-          description: "This is a detailed description of the book. It covers the plot, characters, and themes in depth. The book explores various concepts and ideas that readers will find engaging and thought-provoking.",
-          published_date: "2023-01-15",
-          preview: "This is a preview of the book content...",
-          content: "This is the full content of the book. It would typically be much longer and contain multiple chapters.",
-          isPremium: bookId % 2 === 0, // Even IDs are premium
-          genre: bookId % 3 === 0 ? "Fiction" : "Non-Fiction",
-          rating: (bookId % 5) + 1, // Rating between 1-5
-          coverImage: null, // In a real app, this would be an image URL
-          libraryId: null // Will be set if book is in library
-        };
-        
-        setBook(book);
-        setLoading(false);
+      console.log(response.data, "book detail response", book);
+
+      setBook(book);
+      setLoading(false);
     } catch (err) {
       console.error("Error fetching book details:", err);
       setError("Failed to load book details. Please try again.");
@@ -81,21 +67,22 @@ const book = {
       // if (bookInLibrary) {
       //   setLibraryStatus(bookInLibrary.status);
       // }
-      
+
       // Mock data for demonstration
       setTimeout(() => {
         // Randomly determine if book is in library
         const inLibrary = Math.random() > 0.5;
         if (inLibrary) {
-          const statuses = ['saved', 'reading', 'finished'];
-          const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+          const statuses = ["saved", "reading", "finished"];
+          const randomStatus =
+            statuses[Math.floor(Math.random() * statuses.length)];
           setLibraryStatus(randomStatus);
-          
+
           // Set a mock libraryId for the book
           if (book) {
             setBook({
               ...book,
-              libraryId: 'lib_' + bookId + '_' + Date.now()
+              libraryId: "lib_" + bookId + "_" + Date.now(),
             });
           }
         }
@@ -111,15 +98,15 @@ const book = {
     try {
       // In a real implementation, we would use the actual API
       // await LibraryAPI.add(bookId, status);
-      
+
       // Mock implementation
       setTimeout(() => {
         setLibraryStatus(status);
         setSavingToLibrary(false);
         Alert.alert(
-          "Success", 
-          status === 'saved' 
-            ? "Book saved to your library" 
+          "Success",
+          status === "saved"
+            ? "Book saved to your library"
             : "You've started reading this book"
         );
       }, 800);
@@ -145,22 +132,29 @@ const book = {
         <View style={styles.statusContainer}>
           <View style={styles.statusBadge}>
             <Text style={styles.statusText}>
-              {libraryStatus === 'saved' ? 'Saved for Later' :
-               libraryStatus === 'reading' ? 'Currently Reading' :
-               'Finished Reading'}
+              {libraryStatus === "saved"
+                ? "Saved for Later"
+                : libraryStatus === "reading"
+                ? "Currently Reading"
+                : "Finished Reading"}
             </Text>
           </View>
           <View style={styles.statusButtonsRow}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.changeStatusButton}
-              onPress={() => navigation.navigate('Library')}
+              onPress={() => navigation.navigate("Library")}
             >
               <Text style={styles.changeStatusText}>Manage in Library</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.readNowButton}
-              onPress={() => navigation.navigate('Reading', { bookId: book.id, libraryId: book.libraryId })}
+              onPress={() =>
+                navigation.navigate("Reading", {
+                  bookId: book.id,
+                  libraryId: book.libraryId,
+                })
+              }
             >
               <MaterialIcons name="menu-book" size={16} color="#fff" />
               <Text style={styles.readNowButtonText}>Read Now</Text>
@@ -172,17 +166,17 @@ const book = {
 
     return (
       <View style={styles.actionButtons}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.actionButton, styles.saveButton]}
-          onPress={() => addToLibrary('saved')}
+          onPress={() => addToLibrary("saved")}
         >
           <MaterialIcons name="bookmark" size={18} color="#fff" />
           <Text style={styles.buttonText}>Save for Later</Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={[styles.actionButton, styles.readButton]}
-          onPress={() => addToLibrary('reading')}
+          onPress={() => addToLibrary("reading")}
         >
           <MaterialIcons name="book" size={18} color="#fff" />
           <Text style={styles.buttonText}>Start Reading</Text>
@@ -215,7 +209,7 @@ const book = {
     return (
       <View style={styles.centered}>
         <Text>Book not found</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
@@ -230,29 +224,32 @@ const book = {
       <View style={styles.header}>
         <View style={styles.coverContainer}>
           {book.coverImage ? (
-            <Image source={{ uri: book.coverImage.replace(/`/g, '') }} style={styles.coverImage} />
+            <Image
+              source={{ uri: `${API_URL}${book.coverImage}` }}
+              style={styles.coverImage}
+            />
           ) : (
             <View style={styles.placeholderCover}>
               <MaterialIcons name="book" size={48} color="#fff" />
             </View>
           )}
         </View>
-        
+
         <View style={styles.titleContainer}>
           <Text style={styles.title}>{book.title}</Text>
           <Text style={styles.author}>by {book.author}</Text>
-          
+
           <View style={styles.metaContainer}>
             {book.isPremium && (
               <View style={styles.premiumBadge}>
                 <Text style={styles.premiumText}>PREMIUM</Text>
               </View>
             )}
-            
+
             <View style={styles.genreBadge}>
               <Text style={styles.genreText}>{book.genre}</Text>
             </View>
-            
+
             <View style={styles.ratingContainer}>
               <MaterialIcons name="star" size={16} color="#ffc107" />
               <Text style={styles.ratingText}>{book.rating}</Text>
@@ -260,18 +257,18 @@ const book = {
           </View>
         </View>
       </View>
-      
+
       {renderLibraryButtons()}
-      
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Description</Text>
         <Text style={styles.description}>{book.description}</Text>
       </View>
-      
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Preview</Text>
         <Text style={styles.preview}>{book.preview}</Text>
-        
+
         {book.isPremium && (
           <View style={styles.premiumOverlay}>
             <MaterialIcons name="lock" size={24} color="#fff" />
@@ -282,15 +279,15 @@ const book = {
           </View>
         )}
       </View>
-      
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Published</Text>
         <Text style={styles.publishDate}>{book.published_date}</Text>
       </View>
-      
-      <TouchableOpacity 
+
+      <TouchableOpacity
         style={styles.backToHomeButton}
-        onPress={() => navigation.navigate('Home')}
+        onPress={() => navigation.navigate("Home")}
       >
         <MaterialIcons name="home" size={18} color="#6200ee" />
         <Text style={styles.backToHomeText}>Back to Home</Text>
@@ -302,20 +299,20 @@ const book = {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
   },
   centered: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 16,
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: "row",
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: "#e0e0e0",
   },
   coverContainer: {
     marginRight: 16,
@@ -329,31 +326,31 @@ const styles = StyleSheet.create({
     width: 120,
     height: 180,
     borderRadius: 8,
-    backgroundColor: '#9e9e9e',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#9e9e9e",
+    justifyContent: "center",
+    alignItems: "center",
   },
   titleContainer: {
     flex: 1,
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#212121',
+    fontWeight: "bold",
+    color: "#212121",
     marginBottom: 4,
   },
   author: {
     fontSize: 16,
-    color: '#757575',
+    color: "#757575",
     marginBottom: 12,
   },
   metaContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     marginTop: 8,
   },
   premiumBadge: {
-    backgroundColor: '#ffd700',
+    backgroundColor: "#ffd700",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -362,11 +359,11 @@ const styles = StyleSheet.create({
   },
   premiumText: {
     fontSize: 10,
-    fontWeight: 'bold',
-    color: '#212121',
+    fontWeight: "bold",
+    color: "#212121",
   },
   genreBadge: {
-    backgroundColor: '#e0e0e0',
+    backgroundColor: "#e0e0e0",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -375,12 +372,12 @@ const styles = StyleSheet.create({
   },
   genreText: {
     fontSize: 10,
-    color: '#212121',
+    color: "#212121",
   },
   ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff8e1',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff8e1",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -388,188 +385,188 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontSize: 10,
-    fontWeight: 'bold',
-    color: '#ff8f00',
+    fontWeight: "bold",
+    color: "#ff8f00",
     marginLeft: 4,
   },
   actionButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: "#e0e0e0",
   },
   actionButton: {
     flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     paddingVertical: 12,
     borderRadius: 4,
     marginHorizontal: 4,
   },
   saveButton: {
-    backgroundColor: '#757575',
+    backgroundColor: "#757575",
   },
   readButton: {
-    backgroundColor: '#6200ee',
+    backgroundColor: "#6200ee",
   },
   buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: "#fff",
+    fontWeight: "bold",
     marginLeft: 8,
   },
   statusContainer: {
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    alignItems: 'center',
+    borderBottomColor: "#e0e0e0",
+    alignItems: "center",
   },
   statusButtonsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 8,
-    width: '100%',
+    width: "100%",
   },
   statusBadge: {
-    backgroundColor: '#e8f5e9',
+    backgroundColor: "#e8f5e9",
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 16,
     marginBottom: 8,
   },
   statusText: {
-    color: '#2e7d32',
-    fontWeight: 'bold',
+    color: "#2e7d32",
+    fontWeight: "bold",
   },
   changeStatusButton: {
     marginHorizontal: 8,
   },
   changeStatusText: {
-    color: '#6200ee',
-    fontWeight: 'bold',
+    color: "#6200ee",
+    fontWeight: "bold",
   },
   readNowButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#6200ee',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#6200ee",
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 4,
     marginHorizontal: 8,
   },
   readNowButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: "#fff",
+    fontWeight: "bold",
     marginLeft: 8,
   },
   loadingContainer: {
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderBottomColor: "#e0e0e0",
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginLeft: 8,
-    color: '#757575',
+    color: "#757575",
   },
   section: {
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     marginTop: 8,
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#212121',
+    fontWeight: "bold",
+    color: "#212121",
     marginBottom: 8,
   },
   description: {
     fontSize: 14,
-    color: '#424242',
+    color: "#424242",
     lineHeight: 20,
   },
   preview: {
     fontSize: 14,
-    color: '#424242',
+    color: "#424242",
     lineHeight: 20,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   premiumOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
     padding: 16,
   },
   premiumOverlayText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginTop: 8,
     marginBottom: 16,
   },
   upgradeButton: {
-    backgroundColor: '#ffd700',
+    backgroundColor: "#ffd700",
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 4,
   },
   upgradeButtonText: {
-    color: '#212121',
-    fontWeight: 'bold',
+    color: "#212121",
+    fontWeight: "bold",
   },
   publishDate: {
     fontSize: 14,
-    color: '#757575',
+    color: "#757575",
   },
   backToHomeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     padding: 16,
     marginTop: 8,
     marginBottom: 24,
   },
   backToHomeText: {
-    color: '#6200ee',
-    fontWeight: 'bold',
+    color: "#6200ee",
+    fontWeight: "bold",
     marginLeft: 8,
   },
   errorText: {
-    color: 'red',
+    color: "red",
     fontSize: 16,
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   retryButton: {
-    backgroundColor: '#6200ee',
+    backgroundColor: "#6200ee",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: "#fff",
+    fontWeight: "bold",
   },
   backButton: {
     marginTop: 16,
-    backgroundColor: '#6200ee',
+    backgroundColor: "#6200ee",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
   backButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: "#fff",
+    fontWeight: "bold",
   },
 });

@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useContext } from "react"
+import { useState, useEffect, useContext } from "react";
 import {
   View,
   Text,
@@ -11,171 +11,200 @@ import {
   Alert,
   Modal,
   Image,
-} from "react-native"
-import { MaterialIcons } from "@expo/vector-icons"
-import { BooksAPI } from "../api/books"
-import { useNavigation, useRoute } from "@react-navigation/native"
-import AsyncStorage from "@react-native-async-storage/async-storage"
-import { AuthContext } from "../context/AuthContext"
+} from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import { BooksAPI } from "../api/books";
+import { useNavigation, useRoute } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AuthContext } from "../context/AuthContext";
+import { API_URL } from "@env";
 
 export default function WriterScreen({ fetchAllBooks }) {
-  const navigation = useNavigation()
-  const { user } = useContext(AuthContext)
-  const [books, setBooks] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState("published")
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [selectedBook, setSelectedBook] = useState(null)
+  const navigation = useNavigation();
+  const { user } = useContext(AuthContext);
+  const [books, setBooks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("published");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedBook, setSelectedBook] = useState(null);
 
   useEffect(() => {
-    fetchBooks()
-  }, [])
+    fetchBooks();
+  }, []);
 
   const PublishBook = async (bookId, status) => {
     try {
-      console.log("Publishing book with ID:", bookId, "to status:", status)
-      const updatedResponse = await BooksAPI.update(`books/read/${bookId}`, { status: status })
-      fetchBooks()
-      console.log("Book published successfully:", updatedResponse)
+      console.log("Publishing book with ID:", bookId, "to status:", status);
+      const updatedResponse = await BooksAPI.update(`books/read/${bookId}`, {
+        status: status,
+      });
+      fetchBooks();
+      console.log("Book published successfully:", updatedResponse);
     } catch (error) {
-      console.error("Error publishing book:", error)
+      console.error("Error publishing book:", error);
     }
-  }
+  };
 
   const markBookAsFinished = async (bookId) => {
     try {
-      await BooksAPI.update(`books/read/${bookId}`, { status: "finished" })
-      Alert.alert("Success", "Book marked as finished")
-      fetchBooks()
-      fetchAllBooks()
-      setShowCreateModal(false)
+      await BooksAPI.update(`books/read/${bookId}`, { status: "finished" });
+      Alert.alert("Success", "Book marked as finished");
+      fetchBooks();
+      fetchAllBooks();
+      setShowCreateModal(false);
     } catch (error) {
-      console.error("Error marking book as finished:", error)
-      Alert.alert("Error", "Failed to mark book as finished")
+      console.error("Error marking book as finished:", error);
+      Alert.alert("Error", "Failed to mark book as finished");
     }
-  }
+  };
 
   const fetchBooks = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const draftResponse = await BooksAPI.get(`books/read/draft`)
-      const publishedResponse = await BooksAPI.get(`books/read/published`)
+      const draftResponse = await BooksAPI.get(`books/read/draft`);
+      const publishedResponse = await BooksAPI.get(`books/read/published`);
 
-      const bookData = [...draftResponse.data, ...publishedResponse.data]
+      const bookData = [...draftResponse.data, ...publishedResponse.data];
 
-      console.log(bookData, "draft books")
+      console.log(bookData, "draft books");
 
-      const booksData = bookData
+      const booksData = bookData;
 
-      await AsyncStorage.setItem("writer_books", JSON.stringify(booksData))
+      await AsyncStorage.setItem("writer_books", JSON.stringify(booksData));
 
-      setBooks(booksData)
+      setBooks(booksData);
     } catch (error) {
-      console.error("Error fetching books:", error)
+      console.error("Error fetching books:", error);
 
       try {
-        const cachedBooks = await AsyncStorage.getItem("writer_books")
+        const cachedBooks = await AsyncStorage.getItem("writer_books");
         if (cachedBooks) {
-          setBooks(JSON.parse(cachedBooks))
+          setBooks(JSON.parse(cachedBooks));
         } else {
-          setBooks([])
+          setBooks([]);
         }
       } catch (cacheError) {
-        console.error("Error loading from cache:", cacheError)
-        setBooks([])
+        console.error("Error loading from cache:", cacheError);
+        setBooks([]);
       }
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const navigateToCreateBook = () => {
-    setShowCreateModal(false)
-    navigation.navigate("CreateBook", {fetchBooks});
-  }
+    setShowCreateModal(false);
+    navigation.navigate("CreateBook", { fetchBooks });
+  };
 
-const navigateToEditBook = (book) => {
-  navigation.navigate("EditBook", { 
-    bookId: book._id, 
-    fetchBooks
-  });
-};
-
+  const navigateToEditBook = (book) => {
+    navigation.navigate("EditBook", {
+      bookId: book._id,
+      fetchBooks,
+    });
+  };
 
   const navigateToChapters = (book) => {
-    navigation.navigate("ManageChapters", { bookId: book._id, });
-  }
+    navigation.navigate("ManageChapters", { bookId: book._id });
+  };
 
   const handleDeleteBook = (book) => {
-    Alert.alert("Confirm Deletion", `Are you sure you want to delete "${book.title}"?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await BooksAPI.delete(`books/read/${book._id}`)
-                            fetchBooks()
-            Alert.alert("Success", "Book deleted successfully")
-
-          } catch (error) {
-            console.error("Error deleting book:", error)
-            Alert.alert("Error", "Failed to delete book")
-          }
+    Alert.alert(
+      "Confirm Deletion",
+      `Are you sure you want to delete "${book.title}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await BooksAPI.delete(`books/read/${book._id}`);
+              fetchBooks();
+              Alert.alert("Success", "Book deleted successfully");
+            } catch (error) {
+              console.error("Error deleting book:", error);
+              Alert.alert("Error", "Failed to delete book");
+            }
+          },
         },
-      },
-    ])
-  }
+      ]
+    );
+  };
 
   const renderBookItem = ({ item }) => {
-    const isPublished = item.status === "published"
+    const isPublished = item.status === "published";
 
     return (
       <TouchableOpacity
         style={styles.bookItem}
         onPress={() => {
-          setSelectedBook(item)
-          setShowCreateModal(true)
+          setSelectedBook(item);
+          setShowCreateModal(true);
         }}
       >
-        <Image source={{ uri: item.coverImage }} style={styles.bookCover} resizeMode="cover" />
+        <Image
+          source={{ uri: `${API_URL}${item.coverImage}` }}
+          style={styles.bookCover}
+          resizeMode="cover"
+        />
 
         <View style={styles.bookInfo}>
           <Text style={styles.bookTitle}>{item.title}</Text>
 
           {isPublished ? (
             <View>
-              <Text style={styles.bookDetail}>Published: {item.publishedDate}</Text>
-              <Text style={styles.bookDetail}>Chapters: {item.chapterCount}</Text>
+              <Text style={styles.bookDetail}>
+                Published: {item.publishedDate}
+              </Text>
+              <Text style={styles.bookDetail}>
+                Chapters: {item.chapterCount}
+              </Text>
               <View style={styles.statsContainer}>
                 <Text style={styles.statItem}>
-                  <MaterialIcons name="visibility" size={16} color="#757575" /> {item.views}
+                  <MaterialIcons name="visibility" size={16} color="#757575" />{" "}
+                  {item.views}
                 </Text>
                 <Text style={styles.statItem}>
-                  <MaterialIcons name="thumb-up" size={16} color="#757575" /> {item.likes}
+                  <MaterialIcons name="thumb-up" size={16} color="#757575" />{" "}
+                  {item.likes}
                 </Text>
               </View>
             </View>
           ) : (
             <View>
-              <Text style={styles.bookDetail}>Last edited: {item.lastEdited}</Text>
-              <Text style={styles.bookDetail}>Chapters: {item.chapterCount}</Text>
+              <Text style={styles.bookDetail}>
+                Last edited: {item.lastEdited}
+              </Text>
+              <Text style={styles.bookDetail}>
+                Chapters: {item.chapterCount}
+              </Text>
               <View style={styles.progressContainer}>
-                <Text style={styles.progressText}>{item.completionPercentage}% Complete</Text>
+                <Text style={styles.progressText}>
+                  {item.completionPercentage}% Complete
+                </Text>
                 <View style={styles.progressBar}>
-                  <View style={[styles.progressFill, { width: `${item.completionPercentage}%` }]} />
+                  <View
+                    style={[
+                      styles.progressFill,
+                      { width: `${item.completionPercentage}%` },
+                    ]}
+                  />
                 </View>
               </View>
             </View>
           )}
         </View>
 
-        <TouchableOpacity style={styles.actionButton} onPress={() => navigateToChapters(item)}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => navigateToChapters(item)}
+        >
           <MaterialIcons name="menu-book" size={24} color="#6200ee" />
         </TouchableOpacity>
       </TouchableOpacity>
-    )
-  }
+    );
+  };
 
   const renderBookOptionsModal = () => (
     <Modal
@@ -187,11 +216,13 @@ const navigateToEditBook = (book) => {
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{selectedBook ? "Book Options" : "Create New Book"}</Text>
+            <Text style={styles.modalTitle}>
+              {selectedBook ? "Book Options" : "Create New Book"}
+            </Text>
             <TouchableOpacity
               onPress={() => {
-                setShowCreateModal(false)
-                setSelectedBook(null)
+                setShowCreateModal(false);
+                setSelectedBook(null);
               }}
             >
               <MaterialIcons name="close" size={24} color="#000" />
@@ -204,8 +235,8 @@ const navigateToEditBook = (book) => {
               <TouchableOpacity
                 style={styles.modalOption}
                 onPress={() => {
-                  setShowCreateModal(false)
-                  navigateToEditBook(selectedBook)
+                  setShowCreateModal(false);
+                  navigateToEditBook(selectedBook);
                 }}
               >
                 <MaterialIcons name="edit" size={24} color="#6200ee" />
@@ -215,8 +246,8 @@ const navigateToEditBook = (book) => {
               <TouchableOpacity
                 style={styles.modalOption}
                 onPress={() => {
-                  setShowCreateModal(false)
-                  navigateToChapters(selectedBook)
+                  setShowCreateModal(false);
+                  navigateToChapters(selectedBook);
                 }}
               >
                 <MaterialIcons name="menu-book" size={24} color="#6200ee" />
@@ -227,51 +258,71 @@ const navigateToEditBook = (book) => {
                 <TouchableOpacity
                   style={styles.modalOption}
                   onPress={() => {
-                    setShowCreateModal(false)
-                    PublishBook(selectedBook._id, "published")
+                    setShowCreateModal(false);
+                    PublishBook(selectedBook._id, "published");
                   }}
                 >
                   <MaterialIcons name="publish" size={24} color="#4caf50" />
-                  <Text style={[styles.modalOptionText, { color: "#4caf50" }]}>Publish Book</Text>
+                  <Text style={[styles.modalOptionText, { color: "#4caf50" }]}>
+                    Publish Book
+                  </Text>
                 </TouchableOpacity>
               )}
 
-              {selectedBook.status === "published" && user?.role === "admin" && (
-                <TouchableOpacity
-                  style={styles.modalOption}
-                  onPress={() => {
-                    Alert.alert("Mark as Finished", "Are you sure you want to mark this book as finished?", [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Mark as Finished",
-                        style: "destructive",
-                        onPress: () => {
-                          setShowCreateModal(false)
-                          markBookAsFinished(selectedBook._id)
-                        },
-                      },
-                    ])
-                  }}
-                >
-                  <MaterialIcons name="check-circle" size={24} color="#ff9800" />
-                  <Text style={[styles.modalOptionText, { color: "#ff9800" }]}>Mark as Finished</Text>
-                </TouchableOpacity>
-              )}
+              {selectedBook.status === "published" &&
+                user?.role === "admin" && (
+                  <TouchableOpacity
+                    style={styles.modalOption}
+                    onPress={() => {
+                      Alert.alert(
+                        "Mark as Finished",
+                        "Are you sure you want to mark this book as finished?",
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: "Mark as Finished",
+                            style: "destructive",
+                            onPress: () => {
+                              setShowCreateModal(false);
+                              markBookAsFinished(selectedBook._id);
+                            },
+                          },
+                        ]
+                      );
+                    }}
+                  >
+                    <MaterialIcons
+                      name="check-circle"
+                      size={24}
+                      color="#ff9800"
+                    />
+                    <Text
+                      style={[styles.modalOptionText, { color: "#ff9800" }]}
+                    >
+                      Mark as Finished
+                    </Text>
+                  </TouchableOpacity>
+                )}
 
               <TouchableOpacity
                 style={styles.modalOption}
                 onPress={() => {
-                  setShowCreateModal(false)
-                  handleDeleteBook(selectedBook)
+                  setShowCreateModal(false);
+                  handleDeleteBook(selectedBook);
                 }}
               >
                 <MaterialIcons name="delete" size={24} color="#f44336" />
-                <Text style={[styles.modalOptionText, { color: "#f44336" }]}>Delete Book</Text>
+                <Text style={[styles.modalOptionText, { color: "#f44336" }]}>
+                  Delete Book
+                </Text>
               </TouchableOpacity>
             </View>
           ) : (
             // Create new book options
-            <TouchableOpacity style={styles.modalOption} onPress={navigateToCreateBook}>
+            <TouchableOpacity
+              style={styles.modalOption}
+              onPress={navigateToCreateBook}
+            >
               <MaterialIcons name="add-circle" size={24} color="#6200ee" />
               <Text style={styles.modalOptionText}>Create New Book</Text>
             </TouchableOpacity>
@@ -279,13 +330,16 @@ const navigateToEditBook = (book) => {
         </View>
       </View>
     </Modal>
-  )
+  );
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Writer Dashboard</Text>
-        <TouchableOpacity style={styles.createButton} onPress={() => setShowCreateModal(true)}>
+        <TouchableOpacity
+          style={styles.createButton}
+          onPress={() => setShowCreateModal(true)}
+        >
           <MaterialIcons name="add" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -295,14 +349,28 @@ const navigateToEditBook = (book) => {
           style={[styles.tab, activeTab === "published" && styles.activeTab]}
           onPress={() => setActiveTab("published")}
         >
-          <Text style={[styles.tabText, activeTab === "published" && styles.activeTabText]}>Published</Text>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "published" && styles.activeTabText,
+            ]}
+          >
+            Published
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.tab, activeTab === "draft" && styles.activeTab]}
           onPress={() => setActiveTab("draft")}
         >
-          <Text style={[styles.tabText, activeTab === "draft" && styles.activeTabText]}>Drafts</Text>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "draft" && styles.activeTabText,
+            ]}
+          >
+            Drafts
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -320,8 +388,13 @@ const navigateToEditBook = (book) => {
             <View style={styles.emptyContainer}>
               <MaterialIcons name="book" size={64} color="#e0e0e0" />
               <Text style={styles.emptyText}>No {activeTab} books found</Text>
-              <TouchableOpacity style={styles.emptyButton} onPress={() => setShowCreateModal(true)}>
-                <Text style={styles.emptyButtonText}>Create Your First Book</Text>
+              <TouchableOpacity
+                style={styles.emptyButton}
+                onPress={() => setShowCreateModal(true)}
+              >
+                <Text style={styles.emptyButtonText}>
+                  Create Your First Book
+                </Text>
               </TouchableOpacity>
             </View>
           }
@@ -330,7 +403,7 @@ const navigateToEditBook = (book) => {
 
       {renderBookOptionsModal()}
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -508,4 +581,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-})
+});

@@ -13,11 +13,16 @@ exports.createBook = async (req, res) => {
     likes,
     views,
     completionPercentage,
-    coverImage,
     chapterCount,
     status,
   } = req.body;
-  console.log(req.body, "Creating new book");
+  const file = req.file;
+  if (!file) {
+    return res.status(400).json({ message: "Cover image is required" });
+  }
+
+  const coverImage = `/images/${file.filename}`;
+  console.log(req.body, "Creating new book", coverImage);
   try {
     const newBook = new NewBook({
       title,
@@ -42,12 +47,23 @@ exports.createBook = async (req, res) => {
 
 exports.getBooks = async (req, res) => {
   try {
-    const filter =
-      req.params.status === "all"
-        ? {}
-        : req.params.status
-        ? { status: req.params.status }
-        : {};
+    const { status } = req.params;
+    const { id: userId, role } = req.user;
+
+    let filter = {};
+
+    if (status === "draft" || status === "published") {
+      if (role === "admin" && status === "published") {
+        filter = { status };
+      } else {
+        filter = { status, author: userId };
+      }
+    } else if (status === "finished") {
+      filter = { status };
+    } else if (status === "all") {
+      filter = {};
+    }
+
     const books = await NewBook.find(filter).populate(
       "author",
       "_id name email"
@@ -85,9 +101,22 @@ exports.getBookById = async (req, res) => {
 exports.updateBook = async (req, res) => {
   try {
     console.log(req.body, "Updating book with ID:", req.params.id);
+
+    const updateData = {
+      title: req.body.title,
+      previewText: req.body.previewText,
+      genre: req.body.genre,
+      status: req.body.status,
+    };
+
+    // If a new image is uploaded, update the coverImage path
+    if (req.file) {
+      updateData.coverImage = `/images/${req.file.filename}`;
+    }
+
     const updatedBook = await Book.findByIdAndUpdate(
       req.params.id,
-      { status: req.body.status },
+      updateData,
       { new: true }
     );
     res.status(200).json(updatedBook);

@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiGet, apiPost, apiPatch, apiDelete } from "../utils/api";
 import { API_URL } from "@env";
 
@@ -43,22 +44,39 @@ export const BooksAPI = {
 };
 
 async function fetched(api, method, data) {
-  console.log(`Making ${method} request to ${api} with data:`, data);
-  const options = {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-    },
-  };
-  if (data) {
-    options.body = JSON.stringify(data);
+  try {
+    const token = await AsyncStorage.getItem("authToken");
+
+    console.log(
+      `Making ${method} request to ${API_URL}/${api} with data:`,
+      data,
+      "with token: ",
+      token
+    );
+
+    const options = {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    };
+
+    if (token) {
+      options.headers.Authorization = `Bearer ${token}`;
+    }
+
+    if (data) {
+      options.body = JSON.stringify(data);
+    }
+
+    const response = await fetch(`${API_URL}/${api}`, options);
+
+    if (!response.ok) {
+      throw new Error(`Request failed: ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error(`Error calling api, ${error}`);
   }
-
-  const response = await fetch(`${API_URL}/${api}`, options);
-
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
-  }
-
-  return response.json();
 }

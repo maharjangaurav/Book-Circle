@@ -11,17 +11,20 @@ import {
   ActivityIndicator,
   Alert,
   SafeAreaView,
+  Image,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { BooksAPI } from "../api/books";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import GenreDropdown from "../components/GenreDropdown";
+import { API_URL } from "@env";
 
 export default function EditBookScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { bookId, fetchBooks } = route.params;
-  const [book, setBook] = useState();
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -29,17 +32,18 @@ export default function EditBookScreen() {
     description: "",
     genre: [],
     author: "",
+    coverImage: null,
+    existingCoverImage: null,
   });
 
   useEffect(() => {
     fetchBookDetails();
-  }, []);
+  }, [bookId]);
 
   const fetchBookDetails = async () => {
     try {
       const response = await BooksAPI.getById(`books/readbyid/${bookId}`);
       const book = response.data;
-      console.log("Fetched book details:", book);
       setFormData({
         title: book.title || "",
         description: book.previewText || "",
@@ -48,9 +52,11 @@ export default function EditBookScreen() {
           : book.genre
           ? [book.genre]
           : [],
-        author: book.author._id || "",
+        author: book.author?.name || "",
+        coverImage: null,
+        existingCoverImage: book.coverImage || null,
       });
-      setBook(book);
+      console.log(formData, "Fetched book details:", book);
     } catch (error) {
       console.error("Error fetching book details:", error);
       Alert.alert("Error", "Failed to load book details");
@@ -73,6 +79,59 @@ export default function EditBookScreen() {
     }));
   };
 
+  const handlePickImage = async () => {
+    try {
+      // Request permission to access media library
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Denied",
+          "We need permission to access your photo library to select a cover image."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [3, 4],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+
+        const maxSizeInBytes = 5 * 1024 * 1024;
+        if (asset.fileSize && asset.fileSize > maxSizeInBytes) {
+          Alert.alert("Error", "Image size must be less than 5MB");
+          return;
+        }
+
+        // Generate unique filename
+        const timestamp = Date.now();
+        const newName = `cover_${timestamp}.jpg`;
+
+        // Update form data with new image
+        setFormData((prev) => ({
+          ...prev,
+          coverImage: {
+            uri: asset.uri,
+            name: newName,
+            type: asset.mimeType || "image/jpeg",
+            fileSize: asset.fileSize,
+          },
+        }));
+
+        console.log("[v0] Image selected successfully:", newName);
+      }
+    } catch (err) {
+      console.error("[v0] Image picker error:", err);
+      Alert.alert("Error", "Failed to open image picker. Please try again.");
+    }
+  };
+
   const handleSaveBook = async () => {
     if (!formData.title.trim()) {
       Alert.alert("Error", "Please enter a book title");
@@ -86,16 +145,33 @@ export default function EditBookScreen() {
 
     setSaving(true);
     try {
-      await BooksAPI.update(`books/read/${bookId}`, {
-        title: formData.title,
-        previewText: formData.description,
-        genre: formData.genre,
-        author: formData.author,
+      const form = new FormData();
+      form.append("title", formData.title);
+      form.append("previewText", formData.description);
+      form.append("genre", JSON.stringify(formData.genre));
+      form.append("author", formData.author);
+
+      // Only append image if a new one was selected
+      if (formData.coverImage) {
+        form.append("coverImage", {
+          uri: formData.coverImage.uri,
+          name: formData.coverImage.name,
+          type: formData.coverImage.type,
+        });
+      }
+
+      const response = await fetch(`${API_URL}/books/read/${bookId}`, {
+        method: "PATCH",
+        body: form,
       });
 
-      Alert.alert("Success", "Book updated successfully!");
-      fetchBooks();
-      navigation.goBack();
+      if (response.ok) {
+        Alert.alert("Success", "Book updated successfully!");
+        fetchBooks();
+        navigation.goBack();
+      } else {
+        throw new Error("Failed to update book");
+      }
     } catch (error) {
       console.error("Error updating book:", error);
       Alert.alert("Error", "Failed to update book");
@@ -126,6 +202,28 @@ export default function EditBookScreen() {
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.formGroup}>
+          <Text style={styles.label}>Cover Image</Text>
+          <TouchableOpacity
+            style={styles.imagePicker}
+            onPress={handlePickImage}
+          >
+            {formData.coverImage ? (
+              <Image
+                source={{ uri: formData.coverImage.uri }}
+                style={styles.coverPreview}
+              />
+            ) : formData.existingCoverImage ? (
+              <Image
+                source={{ uri: `${API_URL}${formData.existingCoverImage}` }}
+                style={styles.coverPreview}
+              />
+            ) : (
+              <Text style={{ color: "#999" }}>Tap to change cover image</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.formGroup}>
           <Text style={styles.label}>Book Title *</Text>
           <TextInput
             style={styles.input}
@@ -140,9 +238,9 @@ export default function EditBookScreen() {
           <Text style={styles.label}>Author</Text>
           <TextInput
             style={styles.input}
-            editable={false}
-            selectTextOnFocus={false}
-            value={book.author.name || ""}
+            placeholder="Enter author name"
+            value={formData.author}
+            onChangeText={(value) => handleInputChange("author", value)}
             placeholderTextColor="#999"
           />
         </View>
@@ -238,6 +336,21 @@ const styles = StyleSheet.create({
   textArea: {
     height: 120,
     paddingTop: 10,
+  },
+  imagePicker: {
+    height: 150,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f9f9f9",
+    marginBottom: 15,
+  },
+  coverPreview: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 8,
   },
   saveButton: {
     backgroundColor: "#6200ee",

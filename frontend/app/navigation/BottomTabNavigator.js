@@ -12,7 +12,7 @@ import LibraryScreen from "../screens/LibraryScreen";
 import WriterScreen from "../screens/WriterScreen";
 import NotificationsScreen from "../screens/NotificationsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import ManageChaptersScreen from "../screens/ManageChaptersScreen";
 import BookDetailScreen from "../screens/BookDetailScreen";
 import CreateBookScreen from "../screens/CreateBookScreen";
@@ -91,16 +91,29 @@ export default function BottomTabNavigator({ navigation }) {
         id: index + 1,
         _id: book._id,
         title: book.title,
-        author: book.author,
+        author: book.author?.name || "Gaurav Dangol",
         preview: book.previewText,
         isPremium: book.isPremium,
         trending: book.trending || false,
         recentlyAdded: book.recentlyAdded,
         genre: book.genre,
+        coverImage: book?.coverImage || null,
       }));
       setFinishedBooks(bookss);
+      await AsyncStorage.setItem("finished_books", JSON.stringify(bookss));
     } catch (error) {
       console.error("Error fetching all books in BottomTabNavigator:", error);
+      try {
+        const cachedBooks = await AsyncStorage.getItem("finished_books");
+        if (cachedBooks) {
+          setFinishedBooks(JSON.parse(cachedBooks));
+        } else {
+          setFinishedBooks([]);
+        }
+      } catch (cacheError) {
+        console.error("Error loading from cache:", cacheError);
+        setBooks([]);
+      }
     }
   }
 

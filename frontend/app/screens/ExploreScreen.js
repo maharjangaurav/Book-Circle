@@ -16,6 +16,7 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import { BooksAPI } from "../api/books";
 import { useNavigation } from "@react-navigation/native";
+import { API_URL } from "@env";
 
 export default function ExploreScreen({ finishedBooks, fetchAllBooks }) {
   const navigation = useNavigation();
@@ -201,8 +202,8 @@ export default function ExploreScreen({ finishedBooks, fetchAllBooks }) {
         <Image
           source={{
             uri: item.coverImage
-              ? item.coverImage.replace(/`/g, "")
-              : "https://via.placeholder.com/150",
+              ? `${API_URL}${item.coverImage}`
+              : `${API_URL}/images/noImage.png`,
           }}
           style={
             viewMode === "grid" ? styles.gridCoverImage : styles.listCoverImage
@@ -265,8 +266,8 @@ export default function ExploreScreen({ finishedBooks, fetchAllBooks }) {
                 <Image
                   source={{
                     uri: book.coverImage
-                      ? book.coverImage.replace(/`/g, "")
-                      : "https://via.placeholder.com/300x450",
+                      ? `${API_URL}${book.coverImage}`
+                      : `${API_URL}/images/noImage.png`,
                   }}
                   style={styles.carouselImage}
                   resizeMode="cover"
