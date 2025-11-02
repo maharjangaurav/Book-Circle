@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const bookRouter = require("./routes/books");
+const chapterRouter = require("./routes/chapter");
 const authRoutes = require("./routes/auth");
 const authMiddleware = require("./middleware/authMiddleware");
 const path = require("path");
@@ -27,6 +28,7 @@ app.use(cors({ origin: "*" }));
 app.use("/uploads", express.static(__dirname + "/uploads"));
 app.use("/images", express.static(path.join(__dirname, "public", "images")));
 app.use("/books", bookRouter);
+app.use("/chapter", chapterRouter);
 app.use("/api/auth", authRoutes);
 app.get("/api/user/profile", authMiddleware, (req, res) => {
   res.json({

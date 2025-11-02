@@ -8,6 +8,7 @@ const {
   updateBook,
   deleteBook,
   getBooks,
+  updateBookChater,
 } = require("../controllers/bookController");
 const authMiddleware = require("../middleware/authMiddleware");
 
@@ -27,5 +28,6 @@ router.post("/create", upload.single("coverImage"), createBook);
 router.get("/read/:status", authMiddleware, getBooks);
 router.get("/readbyid/:id", getBookById);
 router.patch("/read/:id", upload.single("coverImage"), updateBook);
+router.patch("/readChapter/:id", updateBookChater);
 router.delete("/read/:id", deleteBook);
 module.exports = router;

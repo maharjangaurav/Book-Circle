@@ -20,7 +20,12 @@ const newBookSchema = new mongoose.Schema(
     rending: { type: Boolean, default: false },
     recentlyAdded: { type: Boolean, default: false },
     publishedDate: { type: Date, default: Date.now },
-    chapterCount: { type: Number, default: 0 },
+    chapters: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Chapter",
+      },
+    ],
     views: { type: Number, default: 0 },
     likes: { type: Number, default: 0 },
     completionPercentage: { type: Number, default: 0 },

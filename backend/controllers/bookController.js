@@ -1,5 +1,4 @@
 const NewBook = require("../models/books");
-const Book = require("../models/books");
 
 // Create (Writer publishes a book)
 exports.createBook = async (req, res) => {
@@ -64,10 +63,9 @@ exports.getBooks = async (req, res) => {
       filter = {};
     }
 
-    const books = await NewBook.find(filter).populate(
-      "author",
-      "_id name email"
-    );
+    const books = await NewBook.find(filter)
+      .populate("author", "_id name email")
+      .populate("chapters");
 
     res.status(200).json({ success: true, data: books });
   } catch (e) {
@@ -78,10 +76,9 @@ exports.getBooks = async (req, res) => {
 // Get single book (for reading)
 exports.getBookById = async (req, res) => {
   try {
-    const book = await NewBook.findById(req.params.id).populate(
-      "author",
-      "_id name email"
-    );
+    const book = await NewBook.findById(req.params.id)
+      .populate("author", "_id name email")
+      .populate("chapters");
     if (!book) return res.status(404).json({ message: "Book not found" });
 
     // increase view count
@@ -114,9 +111,24 @@ exports.updateBook = async (req, res) => {
       updateData.coverImage = `/images/${req.file.filename}`;
     }
 
-    const updatedBook = await Book.findByIdAndUpdate(
+    const updatedBook = await NewBook.findByIdAndUpdate(
       req.params.id,
       updateData,
+      { new: true }
+    );
+    res.status(200).json(updatedBook);
+  } catch (error) {
+    res.status(500).json({ message: "Error updating book" });
+  }
+};
+
+exports.updateBookChater = async (req, res) => {
+  try {
+    console.log(req.body, "Updating book Chapter", req.params.id);
+
+    const updatedBook = await NewBook.findByIdAndUpdate(
+      req.params.id,
+      { $addToSet: { chapters: req.body.chapter } }, // prevents duplicates
       { new: true }
     );
     res.status(200).json(updatedBook);
@@ -128,7 +140,7 @@ exports.updateBook = async (req, res) => {
 // Delete book
 exports.deleteBook = async (req, res) => {
   try {
-    await Book.findByIdAndDelete(req.params.id);
+    await NewBook.findByIdAndDelete(req.params.id);
     res.status(200).json({ message: "Book deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Error deleting book" });

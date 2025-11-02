@@ -12,11 +12,14 @@ import LibraryScreen from "../screens/LibraryScreen";
 import WriterScreen from "../screens/WriterScreen";
 import NotificationsScreen from "../screens/NotificationsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import ManageChaptersScreen from "../screens/ManageChaptersScreen";
 import BookDetailScreen from "../screens/BookDetailScreen";
 import CreateBookScreen from "../screens/CreateBookScreen";
 import EditBookScreen from "../screens/EditBookScreen";
+import ContentScreen from "../screens/ContentScreen";
+import EditChapterScreen from "../screens/EditChapterScreen";
+import EditContentScreen from "../screens/EditContentScreen";
+import ReadingScreen from "../screens/ReadingScreen";
 import { BooksAPI } from "../api/books";
 
 const Tab = createBottomTabNavigator();
@@ -91,29 +94,16 @@ export default function BottomTabNavigator({ navigation }) {
         id: index + 1,
         _id: book._id,
         title: book.title,
-        author: book.author?.name || "Gaurav Dangol",
+        author: book.author?.name || "",
         preview: book.previewText,
         isPremium: book.isPremium,
         trending: book.trending || false,
         recentlyAdded: book.recentlyAdded,
         genre: book.genre,
-        coverImage: book?.coverImage || null,
       }));
       setFinishedBooks(bookss);
-      await AsyncStorage.setItem("finished_books", JSON.stringify(bookss));
     } catch (error) {
       console.error("Error fetching all books in BottomTabNavigator:", error);
-      try {
-        const cachedBooks = await AsyncStorage.getItem("finished_books");
-        if (cachedBooks) {
-          setFinishedBooks(JSON.parse(cachedBooks));
-        } else {
-          setFinishedBooks([]);
-        }
-      } catch (cacheError) {
-        console.error("Error loading from cache:", cacheError);
-        setBooks([]);
-      }
     }
   }
 
@@ -229,7 +219,7 @@ export default function BottomTabNavigator({ navigation }) {
         component={BookDetailScreen}
         options={{
           title: "Book Details",
-          tabBarButton: () => null, // Hide from tab bar
+          tabBarButton: () => null,
         }}
       />
       <Tab.Screen
@@ -253,6 +243,39 @@ export default function BottomTabNavigator({ navigation }) {
         component={ManageChaptersScreen}
         options={{
           title: "Manage Chapters",
+          tabBarButton: () => null,
+        }}
+      />
+      <Tab.Screen
+        name="Content"
+        component={ContentScreen}
+        options={{
+          title: "Add Content",
+          tabBarButton: () => null,
+        }}
+      />
+      <Tab.Screen
+        name="EditChapter"
+        component={EditChapterScreen}
+        options={{
+          title: "Edit Chapter",
+          tabBarButton: () => null,
+        }}
+      />
+      <Tab.Screen
+        name="EditContent"
+        component={EditContentScreen}
+        options={{
+          title: "Edit Content",
+          tabBarButton: () => null,
+        }}
+      />
+
+      <Tab.Screen
+        name="Reading"
+        component={ReadingScreen}
+        options={{
+          title: "Reading",
           tabBarButton: () => null,
         }}
       />

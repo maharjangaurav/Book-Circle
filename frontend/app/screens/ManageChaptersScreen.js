@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,88 +12,112 @@ import {
   SafeAreaView,
   TextInput,
   Modal,
-} from "react-native"
-import { MaterialIcons } from "@expo/vector-icons"
-import { BooksAPI } from "../api/books"
-import { useNavigation, useRoute } from "@react-navigation/native"
+} from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import { BooksAPI } from "../api/books";
+import { useNavigation, useRoute } from "@react-navigation/native";
+import { API_URL } from "@env";
 
 export default function ManageChaptersScreen() {
-  const navigation = useNavigation()
-  const route = useRoute()
-  const { bookId } = route.params
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { bookId } = route.params;
 
-  const [loading, setLoading] = useState(true)
-  const [chapters, setChapters] = useState([])
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [newChapterTitle, setNewChapterTitle] = useState("")
-  const [addingChapter, setAddingChapter] = useState(false)
+  const [loading, setLoading] = useState(true);
+  const [chapters, setChapters] = useState([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newChapter, setNewChapter] = useState("");
+  const [newChapterTitle, setNewChapterTitle] = useState("");
+  const [addingChapter, setAddingChapter] = useState(false);
 
   useEffect(() => {
-    fetchChapters()
-  }, [])
+    fetchChapters();
+  }, [bookId]);
 
   const fetchChapters = async () => {
     try {
       // Fetch chapters for this book
-      const response = await BooksAPI.getById(`books/readbyid/${bookId}`)
-      const book = response.data
-      setChapters(book.chapters || [])
+      const response = await BooksAPI.getById(`books/readbyid/${bookId}`);
+      const book = response.data;
+      setChapters(book.chapters || []);
     } catch (error) {
-      console.error("Error fetching chapters:", error)
-      Alert.alert("Error", "Failed to load chapters")
+      console.error("Error fetching chapters:", error);
+      Alert.alert("Error", "Failed to load chapters");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
+
+  const addChapters = async (chapter) => {
+    try {
+      const response = await fetch(`${API_URL}/books/create`, {
+        method: "POST",
+        body: chapter,
+      });
+    } catch (error) {}
+  };
 
   const handleAddChapter = async () => {
     if (!newChapterTitle.trim()) {
-      Alert.alert("Error", "Please enter a chapter title")
-      return
+      Alert.alert("Error", "Please enter a chapter title");
+      return;
     }
 
-    setAddingChapter(true)
+    if (!newChapter.trim()) {
+      Alert.alert("Error", "Please enter a chapter Number");
+      return;
+    }
+
+    setAddingChapter(true);
     try {
-      const newChapter = {
+      const Chapter = {
+        book: bookId,
         title: newChapterTitle,
         content: "",
-        chapterNumber: chapters.length + 1,
-      }
+        order_number: newChapter,
+      };
 
-      // Add chapter via API
-      await BooksAPI.create(`books/read/${bookId}/chapters`, newChapter)
-
-      setChapters([...chapters, newChapter])
-      setNewChapterTitle("")
-      setShowAddModal(false)
-      Alert.alert("Success", "Chapter added successfully!")
+      const response = await BooksAPI.create(`chapter/create`, Chapter);
+      console.log(response, "consoling response body after creating chapter");
+      setChapters([...chapters, Chapter]);
+      setNewChapterTitle("");
+      setShowAddModal(false);
+      Alert.alert("Success", "Chapter added successfully!");
     } catch (error) {
-      console.error("Error adding chapter:", error)
-      Alert.alert("Error", "Failed to add chapter")
+      console.error("Error adding chapter:", error);
+      Alert.alert("Error", "Failed to add chapter");
     } finally {
-      setAddingChapter(false)
+      setAddingChapter(false);
     }
-  }
+  };
 
   const handleDeleteChapter = (chapterIndex) => {
-    Alert.alert("Delete Chapter", "Are you sure you want to delete this chapter?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await BooksAPI.delete(`books/read/${bookId}/chapters/${chapterIndex}`)
-            setChapters(chapters.filter((_, index) => index !== chapterIndex))
-            Alert.alert("Success", "Chapter deleted successfully!")
-          } catch (error) {
-            console.error("Error deleting chapter:", error)
-            Alert.alert("Error", "Failed to delete chapter")
-          }
+    Alert.alert(
+      "Delete Chapter",
+      "Are you sure you want to delete this chapter?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await BooksAPI.delete(
+                `books/read/${bookId}/chapters/${chapterIndex}`
+              );
+              setChapters(
+                chapters.filter((_, index) => index !== chapterIndex)
+              );
+              Alert.alert("Success", "Chapter deleted successfully!");
+            } catch (error) {
+              console.error("Error deleting chapter:", error);
+              Alert.alert("Error", "Failed to delete chapter");
+            }
+          },
         },
-      },
-    ])
-  }
+      ]
+    );
+  };
 
   const renderChapterItem = ({ item, index }) => (
     <View style={styles.chapterItem}>
@@ -102,15 +126,40 @@ export default function ManageChaptersScreen() {
         <Text style={styles.chapterTitle}>{item.title}</Text>
       </View>
       <View style={styles.chapterActions}>
-        <TouchableOpacity style={styles.actionButton}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() =>
+            navigation.navigate("EditChapter", {
+              fetchChapters,
+              chapterId: item._id,
+              bookId,
+            })
+          }
+        >
           <MaterialIcons name="edit" size={20} color="#6200ee" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteChapter(index)}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => handleDeleteChapter(index)}
+        >
           <MaterialIcons name="delete" size={20} color="#f44336" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() =>
+            navigation.navigate("Content", {
+              chapterId: item._id,
+              bookId,
+              chapterTitle: item.title,
+            })
+          }
+        >
+          <MaterialIcons name="description" size={20} color="#0A84FF" />
         </TouchableOpacity>
       </View>
     </View>
-  )
+  );
 
   if (loading) {
     return (
@@ -119,7 +168,7 @@ export default function ManageChaptersScreen() {
           <ActivityIndicator size="large" color="#6200ee" />
         </View>
       </SafeAreaView>
-    )
+    );
   }
 
   return (
@@ -138,7 +187,10 @@ export default function ManageChaptersScreen() {
         <View style={styles.emptyContainer}>
           <MaterialIcons name="menu-book" size={64} color="#e0e0e0" />
           <Text style={styles.emptyText}>No chapters yet</Text>
-          <TouchableOpacity style={styles.emptyButton} onPress={() => setShowAddModal(true)}>
+          <TouchableOpacity
+            style={styles.emptyButton}
+            onPress={() => setShowAddModal(true)}
+          >
             <Text style={styles.emptyButtonText}>Add First Chapter</Text>
           </TouchableOpacity>
         </View>
@@ -168,6 +220,14 @@ export default function ManageChaptersScreen() {
 
             <TextInput
               style={styles.input}
+              placeholder="Enter chapter"
+              keyboardType="numeric"
+              value={newChapter}
+              onChangeText={setNewChapter}
+            />
+
+            <TextInput
+              style={styles.input}
               placeholder="Enter chapter title"
               value={newChapterTitle}
               onChangeText={setNewChapterTitle}
@@ -189,7 +249,7 @@ export default function ManageChaptersScreen() {
         </View>
       </Modal>
     </SafeAreaView>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -320,4 +380,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-})
+});
