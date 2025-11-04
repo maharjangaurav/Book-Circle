@@ -87,7 +87,7 @@ async function signup(req, res) {
       email,
       password: hashedPassword,
       name,
-      role: "admin",
+      role: "reader",
     });
 
     await newUser.save(); // ✅ save to MongoDB
