@@ -100,6 +100,7 @@ export default function BottomTabNavigator({ navigation }) {
         trending: book.trending || false,
         recentlyAdded: book.recentlyAdded,
         genre: book.genre,
+        coverImage: book?.coverImage,
       }));
       setFinishedBooks(bookss);
     } catch (error) {

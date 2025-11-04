@@ -63,7 +63,7 @@ export default function ContentScreen() {
     setSaving(true);
     try {
       console.log(content, "consoling content>>>");
-      await BooksAPI.update(`chapter/read/${chapterId}`, { content });
+      await BooksAPI.update(`chapter/read/content/${chapterId}`, { content });
       Alert.alert("Success", "Chapter content saved successfully!");
       navigation.goBack();
     } catch (error) {

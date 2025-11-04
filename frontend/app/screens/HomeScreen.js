@@ -1,106 +1,104 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { View, Text, ActivityIndicator, FlatList, StyleSheet, TouchableOpacity } from "react-native"
-import { MaterialIcons } from "@expo/vector-icons"
-import { useNavigation, useRoute } from "@react-navigation/native"
-import { BooksAPI } from "../api/books"
-import { useAuth } from "../context/AuthContext"
+import { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  Dimensions,
+} from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { useAuth } from "../context/AuthContext";
+import { API_URL } from "@env";
+
+const { width } = Dimensions.get("window");
+const CARD_WIDTH = (width - 48) / 2;
 
 export default function HomeScreen({ finishedBooks, fetchAllBooks }) {
-  const navigation = useNavigation()
+  const navigation = useNavigation();
 
-  const { user } = useAuth()
-  const [books, setBooks] = useState([])
-  const [trendingBooks, setTrendingBooks] = useState([])
-  const [recentBooks, setRecentBooks] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-
-  // const fetchBooks = async () => {
-
-
-  //   try {
-  //     const response = await BooksAPI.get(`books/read/finished`)
-  //     const bookss = response.data.map((book, index) => ({
-  //       id: index + 1,
-  //       _id: book._id,
-  //       title: book.title,
-  //       author: book.author,
-  //       preview: book.previewText,
-  //       isPremium: book.isPremium,
-  //       trending: book.trending || false,
-  //       recentlyAdded: book.recentlyAdded,
-  //     }))
-
-  //     console.log(bookss)
-
-  //     // console.log(books, "books from api");
-
-
-  //   } catch (err) {
-  //     console.error("Error fetching books:", err)
-  //     setError("Failed to load books. Please check your connection.")
-  //     setLoading(false)
-  //   }
-  // }
+  const { user } = useAuth();
+  const [books, setBooks] = useState([]);
+  const [trendingBooks, setTrendingBooks] = useState([]);
+  const [recentBooks, setRecentBooks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (finishedBooks){
-          setLoading(true)
-    setError(null)
-          setBooks(finishedBooks)
-      setTrendingBooks(finishedBooks.filter((book) => book.trending))
-      setRecentBooks(finishedBooks.filter((book) => book.recentlyAdded))
-      setLoading(false)
+    if (finishedBooks) {
+      console.log("Finished books received:", finishedBooks);
+      setLoading(true);
+      setError(null);
+      setBooks(finishedBooks);
+      setTrendingBooks(finishedBooks.filter((book) => book.trending));
+      setRecentBooks(finishedBooks.filter((book) => book.recentlyAdded));
+      setLoading(false);
     }
-  }, [finishedBooks])
+  }, [finishedBooks]);
 
   useEffect(() => {
-    fetchAllBooks()
-  }, [])
+    fetchAllBooks();
+  }, []);
 
   const renderBook = ({ item }) => (
-    <TouchableOpacity style={styles.bookCard} onPress={() => navigation.navigate("BookDetails", { bookId: item._id })}>
+    <TouchableOpacity
+      style={styles.bookCard}
+      onPress={() => navigation.navigate("BookDetails", { bookId: item._id })}
+    >
+      <View style={styles.imageContainer}>
+        <Image
+          source={{
+            uri: `${API_URL}${item.coverImage}`,
+          }}
+          style={styles.bookImage}
+          resizeMode="cover"
+        />
+      </View>
+
       <View style={styles.bookContent}>
-        <View style={styles.bookHeader}>
-          <Text style={styles.title}>{item.title}</Text>
-          {item.isPremium && (
-            <View style={styles.premiumBadge}>
-              <Text style={styles.premiumText}>PREMIUM</Text>
-            </View>
-          )}
-        </View>
-        <Text style={styles.author}>by {item.author}</Text>
-        <Text style={styles.preview} numberOfLines={2}>
-          {item.preview}
+        <Text style={styles.title} numberOfLines={2}>
+          {item.title}
+        </Text>
+        <Text style={styles.author} numberOfLines={1}>
+          by {item.author}
         </Text>
 
         {(item.trending || item.recentlyAdded) && (
           <View style={styles.tagsContainer}>
             {item.trending && (
               <View style={[styles.tag, styles.trendingTag]}>
-                <MaterialIcons name="trending-up" size={12} color="#fff" />
+                <MaterialIcons name="trending-up" size={10} color="#fff" />
                 <Text style={styles.tagText}>Trending</Text>
               </View>
             )}
             {item.recentlyAdded && (
               <View style={[styles.tag, styles.newTag]}>
-                <MaterialIcons name="fiber-new" size={12} color="#fff" />
+                <MaterialIcons name="fiber-new" size={10} color="#fff" />
                 <Text style={styles.tagText}>New</Text>
               </View>
             )}
           </View>
         )}
+
+        {item.isPremium && (
+          <View style={styles.premiumBadge}>
+            <Text style={styles.premiumText}>PREMIUM</Text>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
-  )
+  );
 
   const renderSectionHeader = (title) => (
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>{title}</Text>
     </View>
-  )
+  );
 
   if (loading) {
     return (
@@ -108,18 +106,18 @@ export default function HomeScreen({ finishedBooks, fetchAllBooks }) {
         <ActivityIndicator size="large" color="#6200ee" />
         <Text>Loading books...</Text>
       </View>
-    )
+    );
   }
 
   if (error) {
     return (
       <View style={styles.centered}>
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={fetchAllBooks()}>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchAllBooks}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>
-    )
+    );
   }
 
   return (
@@ -131,7 +129,9 @@ export default function HomeScreen({ finishedBooks, fetchAllBooks }) {
       )}
       <FlatList
         data={books}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => item._id}
+        numColumns={2}
+        columnWrapperStyle={styles.columnWrapper}
         renderItem={renderBook}
         contentContainerStyle={styles.listContainer}
         ListHeaderComponent={
@@ -142,10 +142,11 @@ export default function HomeScreen({ finishedBooks, fetchAllBooks }) {
                 <FlatList
                   horizontal
                   data={trendingBooks}
-                  keyExtractor={(item) => `trending-${item.id}`}
+                  keyExtractor={(item) => `trending-${item._id}`}
                   renderItem={renderBook}
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.horizontalListContent}
+                  scrollEnabled={false}
                 />
               </>
             )}
@@ -156,10 +157,11 @@ export default function HomeScreen({ finishedBooks, fetchAllBooks }) {
                 <FlatList
                   horizontal
                   data={recentBooks}
-                  keyExtractor={(item) => `recent-${item.id}`}
+                  keyExtractor={(item) => `recent-${item._id}`}
                   renderItem={renderBook}
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.horizontalListContent}
+                  scrollEnabled={false}
                 />
               </>
             )}
@@ -171,12 +173,14 @@ export default function HomeScreen({ finishedBooks, fetchAllBooks }) {
           <View style={styles.emptyContainer}>
             <MaterialIcons name="library-books" size={64} color="#e0e0e0" />
             <Text style={styles.emptyText}>No books available</Text>
-            <Text style={styles.emptySubtext}>Check back later for new titles</Text>
+            <Text style={styles.emptySubtext}>
+              Check back later for new titles
+            </Text>
           </View>
         }
       />
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -191,12 +195,16 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   listContainer: {
-    padding: 16,
+    padding: 12,
     paddingBottom: 24,
+  },
+  columnWrapper: {
+    justifyContent: "space-between",
+    marginBottom: 12,
   },
   sectionHeader: {
     marginTop: 16,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 18,
@@ -211,60 +219,67 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 12,
     marginRight: 12,
-    width: 280,
+    width: CARD_WIDTH,
     shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 3,
     overflow: "hidden",
   },
-  bookContent: {
-    padding: 16,
+  imageContainer: {
+    width: "100%",
+    height: CARD_WIDTH * 1.5,
+    backgroundColor: "#e0e0e0",
   },
-  bookHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 4,
+  bookImage: {
+    width: "100%",
+    height: "100%",
+  },
+  placeholderImage: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#9e9e9e",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  bookContent: {
+    padding: 12,
   },
   title: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "bold",
-    flex: 1,
-    marginRight: 8,
+    color: "#212121",
+    marginBottom: 4,
   },
   author: {
-    fontSize: 14,
+    fontSize: 12,
     color: "#666",
     marginBottom: 8,
   },
-  preview: {
-    fontSize: 14,
-    color: "#757575",
-    lineHeight: 20,
-  },
   premiumBadge: {
     backgroundColor: "#ffd700",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 3,
+    alignSelf: "flex-start",
+    marginTop: 4,
   },
   premiumText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "bold",
     color: "#212121",
   },
   tagsContainer: {
     flexDirection: "row",
-    marginTop: 12,
+    marginTop: 8,
   },
   tag: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginRight: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 3,
+    marginRight: 6,
   },
   trendingTag: {
     backgroundColor: "#6200ee",
@@ -274,9 +289,9 @@ const styles = StyleSheet.create({
   },
   tagText: {
     color: "#fff",
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "bold",
-    marginLeft: 4,
+    marginLeft: 3,
   },
   errorText: {
     color: "red",
@@ -320,4 +335,4 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#fff",
   },
-})
+});

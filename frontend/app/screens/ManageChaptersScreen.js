@@ -74,15 +74,21 @@ export default function ManageChaptersScreen() {
         book: bookId,
         title: newChapterTitle,
         content: "",
-        order_number: newChapter,
+        order_number: Number(newChapter),
       };
 
       const response = await BooksAPI.create(`chapter/create`, Chapter);
       console.log(response, "consoling response body after creating chapter");
-      setChapters([...chapters, Chapter]);
       setNewChapterTitle("");
+      setNewChapter("");
       setShowAddModal(false);
-      Alert.alert("Success", "Chapter added successfully!");
+      if (response?.success) {
+        setChapters([...chapters, Chapter]);
+        Alert.alert("Success", "Chapter Added successfully!");
+        navigation.goBack();
+      } else {
+        Alert.alert("Error", response?.message);
+      }
     } catch (error) {
       console.error("Error adding chapter:", error);
       Alert.alert("Error", "Failed to add chapter");
@@ -91,10 +97,10 @@ export default function ManageChaptersScreen() {
     }
   };
 
-  const handleDeleteChapter = (chapterIndex) => {
+  const handleDeleteChapter = (chapterIndex, chapterId) => {
     Alert.alert(
       "Delete Chapter",
-      "Are you sure you want to delete this chapter?",
+      `Are you sure you want to delete ${bookId} this chapter ${chapterId}?`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -102,9 +108,7 @@ export default function ManageChaptersScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              await BooksAPI.delete(
-                `books/read/${bookId}/chapters/${chapterIndex}`
-              );
+              await BooksAPI.delete(`chapter/read/${bookId}/${chapterId}`);
               setChapters(
                 chapters.filter((_, index) => index !== chapterIndex)
               );
@@ -140,7 +144,7 @@ export default function ManageChaptersScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => handleDeleteChapter(index)}
+          onPress={() => handleDeleteChapter(index, item._id)}
         >
           <MaterialIcons name="delete" size={20} color="#f44336" />
         </TouchableOpacity>

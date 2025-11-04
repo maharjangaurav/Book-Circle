@@ -48,6 +48,7 @@ exports.getBooks = async (req, res) => {
   try {
     const { status } = req.params;
     const { id: userId, role } = req.user;
+    console.log("Fetching books with status:", status, "for user:", userId);
 
     let filter = {};
 

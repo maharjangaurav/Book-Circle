@@ -41,15 +41,13 @@ export default function BookDetailScreen({ route, navigation }) {
         isPremium: response.data.isPremium,
         trending: response.data.trending || false,
         recentlyAdded: response.data.recentlyAdded,
+        content: allcontent(response.data.chapters),
         description: "This is a detailed description of the book...",
         published_date: response.data.createdAt,
         genre: response.data.genre,
         rating: 5,
         coverImage: response.data.coverImage,
       };
-
-      console.log(response.data, "book detail response", book);
-
       setBook(book);
       setLoading(false);
     } catch (err) {
@@ -58,6 +56,32 @@ export default function BookDetailScreen({ route, navigation }) {
       setLoading(false);
     }
   };
+
+  function allcontent(chapters = []) {
+    // Sort chapters by order_number (ascending)
+    const sorted = chapters.sort((a, b) => a.order_number - b.order_number);
+
+    // Map each chapter to formatted HTML
+    const htmlContent = sorted
+      .map(
+        (ch) => `
+        <div style="margin-bottom: 30px;">
+          <h2 style="text-align: center; font-weight: bold; font-size: 16px;">
+            Chapter-${ch.order_number}
+          </h2>
+          <h3 style="text-align: center; font-weight: bold; font-size: 14px;">
+            ${ch.title}
+          </h3>
+          <div style="margin-top: 10px;">
+            ${ch.content || ""}
+          </div>
+        </div>
+      `
+      )
+      .join(""); // Join all chapters into a single HTML string
+
+    return htmlContent;
+  }
 
   const checkLibraryStatus = async () => {
     try {
@@ -153,6 +177,7 @@ export default function BookDetailScreen({ route, navigation }) {
                 navigation.navigate("Reading", {
                   bookId: book.id,
                   libraryId: book.libraryId,
+                  featchedbook: book,
                 })
               }
             >
