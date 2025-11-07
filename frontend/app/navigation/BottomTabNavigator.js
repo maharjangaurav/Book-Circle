@@ -61,6 +61,9 @@ const HeaderWithAvatar = ({ navigation }) => {
 export default function BottomTabNavigator({ navigation }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [finishedBooks, setFinishedBooks] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const { user } = useAuth();
 
@@ -75,6 +78,7 @@ export default function BottomTabNavigator({ navigation }) {
     };
 
     fetchUnreadCount();
+    fetchNotifications();
 
     // Set up a refresh interval (optional)
     const intervalId = setInterval(fetchUnreadCount, 60000); // Refresh every minute
@@ -107,6 +111,54 @@ export default function BottomTabNavigator({ navigation }) {
       console.error("Error fetching all books in BottomTabNavigator:", error);
     }
   }
+
+  const fetchNotifications = async () => {
+    try {
+      const response = await BooksAPI.get(`api/notifications`);
+      console.log("Fetched notifications:", response);
+      setTimeout(() => {
+        const mockNotifications = [
+          {
+            id: 1,
+            title: "New book available",
+            message: "Check out the latest release in your favorite genre!",
+            read: false,
+            created_at: "2023-06-15T10:30:00Z",
+          },
+          {
+            id: 2,
+            title: "Reading milestone",
+            message: "Congratulations! You have read 5 books this month.",
+            read: true,
+            created_at: "2023-06-10T14:20:00Z",
+          },
+          {
+            id: 3,
+            title: "Author update",
+            message: "An author you follow has published a new book.",
+            read: false,
+            created_at: "2023-06-05T09:15:00Z",
+          },
+          {
+            id: 4,
+            title: "Book recommendation",
+            message:
+              'Based on your reading history, you might enjoy "The Great Novel".',
+            read: true,
+            created_at: "2023-06-01T16:45:00Z",
+          },
+        ];
+        setNotifications(response.data || mockNotifications);
+        setLoading(false);
+        setRefreshing(false);
+      }, 1000);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      Alert.alert("Error", "Failed to load notifications");
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   return (
     <Tab.Navigator
@@ -202,12 +254,24 @@ export default function BottomTabNavigator({ navigation }) {
       </Tab.Screen>
       <Tab.Screen
         name="Notifications"
-        component={NotificationsScreen}
         options={{
           title: "Notifications",
-          tabBarBadge: 3, // Example badge count, will be dynamic in real app
+          tabBarBadge: notifications?.length,
         }}
-      />
+      >
+        {() => (
+          <NotificationsScreen
+            fetchNotifications={fetchNotifications}
+            notifications={notifications}
+            setNotifications={setNotifications}
+            setLoading={setLoading}
+            setRefreshing={setRefreshing}
+            loading={loading}
+            refreshing={refreshing}
+          />
+        )}
+      </Tab.Screen>
+
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}

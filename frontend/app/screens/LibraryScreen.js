@@ -1,115 +1,208 @@
+"use client";
+
 import React, { useEffect, useState } from "react";
-import { 
-  View, 
-  Text, 
-  FlatList, 
-  ActivityIndicator, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  FlatList,
+  ActivityIndicator,
+  StyleSheet,
   Alert,
   TouchableOpacity,
   Modal,
-  Pressable
+  Image,
 } from "react-native";
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons } from "@expo/vector-icons";
 import { LibraryAPI } from "../api/library";
+import { AsyncStorageHelper } from "../utils/asyncStorageHelper";
+import { API_URL } from "@env";
+import { useFocusEffect } from "@react-navigation/native";
+import { BooksAPI } from "../api/books";
 
 const READING_STATUS = {
   SAVED: "saved",
   READING: "reading",
-  FINISHED: "finished"
+  FINISHED: "finished",
 };
 
-export default function LibraryScreen() {
-  const [items, setItems] = useState(null);
+export default function LibraryScreen({ navigation }) {
+  const [items, setItems] = useState([]);
   const [activeTab, setActiveTab] = useState(READING_STATUS.SAVED);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedBook, setSelectedBook] = useState(null);
-  const [updatingStatus, setUpdatingStatus] = useState(false);
-  
-  // New state variables for enhanced library management
-  const [sortBy, setSortBy] = useState('title'); // title, author, recent
-  const [sortOrder, setSortOrder] = useState('asc'); // asc, desc
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [sortBy, setSortBy] = useState("title");
+  const [sortOrder, setSortOrder] = useState("asc");
   const [showSortOptions, setShowSortOptions] = useState(false);
-  const [selectedBooks, setSelectedBooks] = useState([]);
-  const [batchMode, setBatchMode] = useState(false);
-  const [showBatchOptions, setShowBatchOptions] = useState(false);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchLibrary();
+    }, [])
+  );
 
   useEffect(() => {
     fetchLibrary();
   }, []);
-  
-  // Get filtered and sorted books based on current selections
+
+  const fetchLibrary = async () => {
+    try {
+      setLoading(true);
+      const libraryData = await BooksAPI.get(`api/library`);
+      console.log("Fetched library data:", libraryData);
+
+      const transformedItems = libraryData.data.map((item) => ({
+        id: item._id,
+        bookId: item.book._id,
+        book_title: item.book.title,
+        book_author: item.book.author?.name || "Unknown",
+        book_cover: item.book.coverImage,
+        status: item.status,
+        progress: item.progress || 0,
+        lastReadAt: item.lastReadAt,
+        addedAt: item.createdAt,
+        book: item.book,
+      }));
+
+      setItems(transformedItems);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error fetching library:", error);
+      const localLibrary = await AsyncStorageHelper.getLibrary();
+      const transformedItems = localLibrary.map((item) => ({
+        id: item.id,
+        bookId: item.id,
+        book_title: item.title,
+        book_author: item.author || "Unknown",
+        book_cover: item.coverImage,
+        status: item.status,
+        progress: item.progress || 0,
+        lastReadAt: item.lastReadAt,
+        addedAt: item.addedAt,
+      }));
+      setItems(transformedItems);
+      setLoading(false);
+      Alert.alert("Info", "Showing local library (offline mode)");
+    }
+  };
+
   const getFilteredAndSortedBooks = () => {
     if (!items) return [];
-    
-    // Filter by status
-    const filteredBooks = items.filter(item => item.status === activeTab);
-    
-    // Sort books
+
+    const filteredBooks = items.filter((item) => item.status === activeTab);
+
     return filteredBooks.sort((a, b) => {
-      if (sortBy === 'title') {
-        const titleA = a.book.title.toLowerCase();
-        const titleB = b.book.title.toLowerCase();
-        return sortOrder === 'asc' 
-          ? titleA.localeCompare(titleB) 
+      if (sortBy === "title") {
+        const titleA = a.book_title.toLowerCase();
+        const titleB = b.book_title.toLowerCase();
+        return sortOrder === "asc"
+          ? titleA.localeCompare(titleB)
           : titleB.localeCompare(titleA);
-      } else if (sortBy === 'author') {
-        const authorA = a.book.author.toLowerCase();
-        const authorB = b.book.author.toLowerCase();
-        return sortOrder === 'asc' 
-          ? authorA.localeCompare(authorB) 
+      } else if (sortBy === "author") {
+        const authorA = a.book_author.toLowerCase();
+        const authorB = b.book_author.toLowerCase();
+        return sortOrder === "asc"
+          ? authorA.localeCompare(authorB)
           : authorB.localeCompare(authorA);
-      } else if (sortBy === 'recent') {
+      } else if (sortBy === "recent") {
         const dateA = new Date(a.lastReadAt || a.addedAt).getTime();
         const dateB = new Date(b.lastReadAt || b.addedAt).getTime();
-        return sortOrder === 'asc' 
-          ? dateA - dateB 
-          : dateB - dateA;
+        return sortOrder === "asc" ? dateA - dateB : dateB - dateA;
       }
       return 0;
     });
   };
 
-  const fetchLibrary = async () => {
+  const updateReadingStatus = async (libraryItemId, newStatus) => {
     try {
-      const data = await LibraryAPI.list();
-      setItems(data);
-    } catch (e) {
-      Alert.alert("Auth required", "Login first (Writer tab → Dev Login)");
-      setItems([]);
-    }
-  };
+      const libraryItem = await BooksAPI.update(
+        `api/library/${libraryItemId}/status`,
+        { newStatus }
+      );
+      // await LibraryAPI.updateStatus(libraryItemId, newStatus);
 
-  const updateReadingStatus = async (bookId, newStatus) => {
-    setUpdatingStatus(true);
-    try {
-      await LibraryAPI.updateStatus(bookId, newStatus);
-      // Update local state
-      setItems(prevItems => 
-        prevItems.map(item => 
-          item.id === bookId ? { ...item, status: newStatus } : item
+      setItems((prevItems) =>
+        prevItems.map((item) =>
+          item.id === libraryItemId ? { ...item, status: newStatus } : item
+        )
+      );
+
+      const localLibrary = await AsyncStorageHelper.getLibrary();
+      const updatedLocalLibrary = localLibrary.map((item) =>
+        item.id === libraryItemId ? { ...item, status: newStatus } : item
+      );
+      await AsyncStorageHelper.saveToLibrary(updatedLocalLibrary[0], newStatus);
+
+      if (modalVisible) setModalVisible(false);
+      Alert.alert("Success", "Book status updated");
+    } catch (error) {
+      console.error("Error updating status:", error);
+      await AsyncStorageHelper.updateReadingStatus(libraryItemId, newStatus);
+      setItems((prevItems) =>
+        prevItems.map((item) =>
+          item.id === libraryItemId ? { ...item, status: newStatus } : item
         )
       );
       if (modalVisible) setModalVisible(false);
-    } catch (error) {
-      Alert.alert("Error", "Failed to update reading status");
-    } finally {
-      setUpdatingStatus(false);
     }
   };
 
-  const updateReadingProgress = async (bookId, progress) => {
+  const updateReadingProgress = async (libraryItemId, progress) => {
     try {
-      await LibraryAPI.updateProgress(bookId, progress);
-      // Update local state
-      setItems(prevItems => 
-        prevItems.map(item => 
-          item.id === bookId ? { ...item, progress } : item
+      const libraryItem = await BooksAPI.update(
+        `api/library/${libraryItemId}/status`,
+        { progress }
+      );
+      // await LibraryAPI.updateProgress(libraryItemId, progress);
+
+      setItems((prevItems) =>
+        prevItems.map((item) =>
+          item.id === libraryItemId ? { ...item, progress } : item
         )
       );
+
+      await AsyncStorageHelper.updateReadingProgress(libraryItemId, progress);
     } catch (error) {
-      Alert.alert("Error", "Failed to update reading progress");
+      console.error("Error updating progress:", error);
+      await AsyncStorageHelper.updateReadingProgress(libraryItemId, progress);
+      setItems((prevItems) =>
+        prevItems.map((item) =>
+          item.id === libraryItemId ? { ...item, progress } : item
+        )
+      );
     }
+  };
+
+  const removeFromLibrary = async (libraryItemId) => {
+    Alert.alert("Remove Book", "Remove this book from your library?", [
+      { text: "Cancel" },
+      {
+        text: "Remove",
+        onPress: async () => {
+          try {
+            const libraryItem = await BooksAPI.delete(
+              `api/library/${libraryItemId}`
+            );
+            // await LibraryAPI.remove(libraryItemId);
+
+            setItems((prevItems) =>
+              prevItems.filter((item) => item.id !== libraryItemId)
+            );
+            await AsyncStorageHelper.removeFromLibrary(libraryItemId);
+
+            Alert.alert("Success", "Book removed from library");
+          } catch (error) {
+            console.error("Error removing book:", error);
+            setItems((prevItems) =>
+              prevItems.filter((item) => item.id !== libraryItemId)
+            );
+            await AsyncStorageHelper.removeFromLibrary(libraryItemId);
+            Alert.alert("Success", "Book removed from library");
+          }
+        },
+      },
+    ]);
   };
 
   const openStatusModal = (book) => {
@@ -117,84 +210,25 @@ export default function LibraryScreen() {
     setModalVisible(true);
   };
 
-  // Toggle batch mode
-  const toggleBatchMode = () => {
-    setBatchMode(!batchMode);
-    if (batchMode) {
-      // Clear selections when exiting batch mode
-      setSelectedBooks([]);
-    }
-  };
-
-  // Toggle book selection in batch mode
-  const toggleBookSelection = (bookId) => {
-    if (selectedBooks.includes(bookId)) {
-      setSelectedBooks(selectedBooks.filter(id => id !== bookId));
-    } else {
-      setSelectedBooks([...selectedBooks, bookId]);
-    }
-  };
-
-  // Perform batch operation on selected books
-  const performBatchOperation = async (operation) => {
-    if (selectedBooks.length === 0) {
-      Alert.alert("No Books Selected", "Please select books to perform this operation");
-      return;
-    }
-
-    setUpdatingStatus(true);
-    try {
-      // Different operations based on the selected action
-      if (operation === 'status') {
-        // Update status for all selected books
-        const newStatus = activeTab === READING_STATUS.SAVED ? READING_STATUS.READING : 
-                         activeTab === READING_STATUS.READING ? READING_STATUS.FINISHED : 
-                         READING_STATUS.SAVED;
-        
-        // In a real app, we would use a batch API endpoint
-        // await LibraryAPI.batchUpdateStatus(selectedBooks, newStatus);
-        
-        // Update local state
-        setItems(prevItems => 
-          prevItems.map(item => 
-            selectedBooks.includes(item.id) ? { ...item, status: newStatus } : item
-          )
-        );
-        
-        Alert.alert("Success", `Updated ${selectedBooks.length} books to ${newStatus}`);
-      } 
-      else if (operation === 'remove') {
-        // Remove selected books from library
-        // In a real app, we would use a batch API endpoint
-        // await LibraryAPI.batchRemove(selectedBooks);
-        
-        // Update local state
-        setItems(prevItems => prevItems.filter(item => !selectedBooks.includes(item.id)));
-        
-        Alert.alert("Success", `Removed ${selectedBooks.length} books from your library`);
-      }
-      
-      // Exit batch mode and clear selections
-      setBatchMode(false);
-      setSelectedBooks([]);
-      setShowBatchOptions(false);
-    } catch (error) {
-      Alert.alert("Error", "Failed to perform batch operation");
-    } finally {
-      setUpdatingStatus(false);
-    }
-  };
-
   const renderStatusTabs = () => (
     <View style={styles.tabsContainer}>
-      {Object.values(READING_STATUS).map(status => (
-        <TouchableOpacity 
+      {Object.values(READING_STATUS).map((status) => (
+        <TouchableOpacity
           key={status}
           style={[styles.tab, activeTab === status && styles.activeTab]}
           onPress={() => setActiveTab(status)}
         >
-          <Text style={[styles.tabText, activeTab === status && styles.activeTabText]}>
-            {status.charAt(0).toUpperCase() + status.slice(1)}
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === status && styles.activeTabText,
+            ]}
+          >
+            {status === READING_STATUS.SAVED
+              ? "Saved"
+              : status === READING_STATUS.READING
+              ? "Reading"
+              : "Finished"}
           </Text>
         </TouchableOpacity>
       ))}
@@ -203,56 +237,90 @@ export default function LibraryScreen() {
 
   const renderBookItem = ({ item }) => {
     const progress = item.progress || 0;
-    const isSelected = selectedBooks.includes(item.id);
-    
+
     return (
-      <TouchableOpacity 
-        style={[styles.bookCard, isSelected && styles.bookItemSelected]}
-        onPress={() => batchMode ? toggleBookSelection(item.id) : openStatusModal(item)}
-        onLongPress={() => {
-          if (!batchMode) {
-            setBatchMode(true);
-            toggleBookSelection(item.id);
-          }
-        }}
+      <TouchableOpacity
+        style={styles.bookCard}
+        onPress={() =>
+          navigation.navigate("BookDetails", { bookId: item.bookId })
+        }
       >
-        <View style={styles.bookInfo}>
-          <Text style={styles.bookTitle}>{item.book_title || item.book?.title}</Text>
+        <View style={styles.coverSection}>
+          {item.book_cover ? (
+            <Image
+              source={{ uri: `${API_URL}${item.book_cover}` }}
+              style={styles.bookCover}
+            />
+          ) : (
+            <View style={styles.placeholderCover}>
+              <MaterialIcons name="book" size={32} color="#fff" />
+            </View>
+          )}
+        </View>
+
+        <View style={styles.bookInfoSection}>
+          <Text style={styles.bookTitle} numberOfLines={2}>
+            {item.book_title}
+          </Text>
+          <Text style={styles.bookAuthor} numberOfLines={1}>
+            {item.book_author}
+          </Text>
+
           {item.status === READING_STATUS.READING && (
             <View style={styles.progressContainer}>
               <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${progress}%` }]} />
+                <View
+                  style={[styles.progressFill, { width: `${progress}%` }]}
+                />
               </View>
               <Text style={styles.progressText}>{progress}% complete</Text>
             </View>
           )}
-        </View>
-        
-        {batchMode && (
-          <View style={styles.selectionIndicator}>
-            <MaterialIcons 
-              name={isSelected ? "check" : "add"} 
-              size={16} 
-              color="#fff" 
-            />
+
+          <View style={styles.actionButtonsRow}>
+            <TouchableOpacity
+              style={styles.smallButton}
+              onPress={() => openStatusModal(item)}
+            >
+              <MaterialIcons name="edit" size={16} color="#6200ee" />
+              <Text style={styles.smallButtonText}>Edit</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.smallButton, styles.deleteButton]}
+              onPress={() => removeFromLibrary(item.id)}
+            >
+              <MaterialIcons name="delete" size={16} color="#f44336" />
+              <Text style={[styles.smallButtonText, { color: "#f44336" }]}>
+                Remove
+              </Text>
+            </TouchableOpacity>
+
+            {item.status === READING_STATUS.READING && (
+              <TouchableOpacity
+                style={[styles.smallButton, styles.readButton]}
+                onPress={() =>
+                  navigation.navigate("Reading", {
+                    bookId: item.bookId,
+                    libraryId: item.id,
+                  })
+                }
+              >
+                <MaterialIcons name="menu-book" size={16} color="#fff" />
+                <Text style={[styles.smallButtonText, { color: "#fff" }]}>
+                  Read
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
-        )}
-        
-        {!batchMode && (
-          <TouchableOpacity 
-            style={styles.statusButton}
-            onPress={() => openStatusModal(item)}
-          >
-            <MaterialIcons name="more-vert" size={24} color="#757575" />
-          </TouchableOpacity>
-        )}
+        </View>
       </TouchableOpacity>
     );
   };
 
   const renderStatusModal = () => {
     if (!selectedBook) return null;
-    
+
     return (
       <Modal
         animationType="slide"
@@ -263,61 +331,70 @@ export default function LibraryScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Update Reading Status</Text>
-            <Text style={styles.modalBookTitle}>{selectedBook.book_title || selectedBook.book?.title}</Text>
-            
-            {updatingStatus ? (
-              <ActivityIndicator size="small" color="#6200ee" />
-            ) : (
-              <View style={styles.statusOptions}>
-                {Object.values(READING_STATUS).map(status => (
-                  <TouchableOpacity 
-                    key={status}
-                    style={[styles.statusOption, selectedBook.status === status && styles.selectedStatus]}
-                    onPress={() => updateReadingStatus(selectedBook.id, status)}
-                  >
-                    <Text style={styles.statusText}>
-                      {status === READING_STATUS.SAVED ? 'Save for Later' : 
-                       status === READING_STATUS.READING ? 'Currently Reading' : 
-                       'Finished Reading'}
+            <Text style={styles.modalBookTitle}>{selectedBook.book_title}</Text>
+
+            <View style={styles.statusOptions}>
+              {Object.values(READING_STATUS).map((status) => (
+                <TouchableOpacity
+                  key={status}
+                  style={[
+                    styles.statusOption,
+                    selectedBook.status === status && styles.selectedStatus,
+                  ]}
+                  onPress={() => updateReadingStatus(selectedBook.id, status)}
+                >
+                  <Text style={styles.statusText}>
+                    {status === READING_STATUS.SAVED
+                      ? "Save for Later"
+                      : status === READING_STATUS.READING
+                      ? "Currently Reading"
+                      : "Finished Reading"}
+                  </Text>
+                  {selectedBook.status === status && (
+                    <MaterialIcons name="check" size={18} color="#6200ee" />
+                  )}
+                </TouchableOpacity>
+              ))}
+
+              {selectedBook.status === READING_STATUS.READING && (
+                <View style={styles.progressInputContainer}>
+                  <Text style={styles.progressLabel}>Reading Progress:</Text>
+                  <View style={styles.progressControls}>
+                    <TouchableOpacity
+                      style={styles.progressButton}
+                      onPress={() => {
+                        const newProgress = Math.max(
+                          0,
+                          (selectedBook.progress || 0) - 10
+                        );
+                        updateReadingProgress(selectedBook.id, newProgress);
+                      }}
+                    >
+                      <Text style={styles.progressButtonText}>-10%</Text>
+                    </TouchableOpacity>
+
+                    <Text style={styles.progressValue}>
+                      {selectedBook.progress || 0}%
                     </Text>
-                    {selectedBook.status === status && (
-                      <MaterialIcons name="check" size={18} color="#6200ee" />
-                    )}
-                  </TouchableOpacity>
-                ))}
-                
-                {selectedBook.status === READING_STATUS.READING && (
-                  <View style={styles.progressInputContainer}>
-                    <Text style={styles.progressLabel}>Reading Progress:</Text>
-                    <View style={styles.progressControls}>
-                      <TouchableOpacity 
-                        style={styles.progressButton}
-                        onPress={() => {
-                          const newProgress = Math.max(0, (selectedBook.progress || 0) - 10);
-                          updateReadingProgress(selectedBook.id, newProgress);
-                        }}
-                      >
-                        <Text style={styles.progressButtonText}>-10%</Text>
-                      </TouchableOpacity>
-                      
-                      <Text style={styles.progressValue}>{selectedBook.progress || 0}%</Text>
-                      
-                      <TouchableOpacity 
-                        style={styles.progressButton}
-                        onPress={() => {
-                          const newProgress = Math.min(100, (selectedBook.progress || 0) + 10);
-                          updateReadingProgress(selectedBook.id, newProgress);
-                        }}
-                      >
-                        <Text style={styles.progressButtonText}>+10%</Text>
-                      </TouchableOpacity>
-                    </View>
+
+                    <TouchableOpacity
+                      style={styles.progressButton}
+                      onPress={() => {
+                        const newProgress = Math.min(
+                          100,
+                          (selectedBook.progress || 0) + 10
+                        );
+                        updateReadingProgress(selectedBook.id, newProgress);
+                      }}
+                    >
+                      <Text style={styles.progressButtonText}>+10%</Text>
+                    </TouchableOpacity>
                   </View>
-                )}
-              </View>
-            )}
-            
-            <TouchableOpacity 
+                </View>
+              )}
+            </View>
+
+            <TouchableOpacity
               style={styles.closeButton}
               onPress={() => setModalVisible(false)}
             >
@@ -329,7 +406,6 @@ export default function LibraryScreen() {
     );
   };
 
-  // Render sort options modal
   const renderSortOptionsModal = () => (
     <Modal
       visible={showSortOptions}
@@ -345,54 +421,58 @@ export default function LibraryScreen() {
               <MaterialIcons name="close" size={24} color="#000" />
             </TouchableOpacity>
           </View>
-          
+
           <View style={styles.sortOptionSection}>
             <Text style={styles.sortOptionTitle}>Sort By</Text>
-            <TouchableOpacity 
-              style={[styles.sortOption, sortBy === 'title' && styles.selectedSortOption]}
-              onPress={() => setSortBy('title')}
-            >
-              <Text style={sortBy === 'title' ? styles.selectedOptionText : {}}>Title</Text>
-              {sortBy === 'title' && <MaterialIcons name="check" size={18} color="#6200ee" />}
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.sortOption, sortBy === 'author' && styles.selectedSortOption]}
-              onPress={() => setSortBy('author')}
-            >
-              <Text style={sortBy === 'author' ? styles.selectedOptionText : {}}>Author</Text>
-              {sortBy === 'author' && <MaterialIcons name="check" size={18} color="#6200ee" />}
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.sortOption, sortBy === 'recent' && styles.selectedSortOption]}
-              onPress={() => setSortBy('recent')}
-            >
-              <Text style={sortBy === 'recent' ? styles.selectedOptionText : {}}>Recently Read</Text>
-              {sortBy === 'recent' && <MaterialIcons name="check" size={18} color="#6200ee" />}
-            </TouchableOpacity>
+            {["title", "author", "recent"].map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.sortOption,
+                  sortBy === option && styles.selectedSortOption,
+                ]}
+                onPress={() => setSortBy(option)}
+              >
+                <Text
+                  style={sortBy === option ? styles.selectedOptionText : {}}
+                >
+                  {option === "title"
+                    ? "Title"
+                    : option === "author"
+                    ? "Author"
+                    : "Recently Read"}
+                </Text>
+                {sortBy === option && (
+                  <MaterialIcons name="check" size={18} color="#6200ee" />
+                )}
+              </TouchableOpacity>
+            ))}
           </View>
-          
+
           <View style={styles.sortOptionSection}>
             <Text style={styles.sortOptionTitle}>Order</Text>
-            <TouchableOpacity 
-              style={[styles.sortOption, sortOrder === 'asc' && styles.selectedSortOption]}
-              onPress={() => setSortOrder('asc')} 
-            >
-              <Text style={sortOrder === 'asc' ? styles.selectedOptionText : {}}>Ascending</Text>
-              {sortOrder === 'asc' && <MaterialIcons name="check" size={18} color="#6200ee" />}
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.sortOption, sortOrder === 'desc' && styles.selectedSortOption]}
-              onPress={() => setSortOrder('desc')}
-            >
-              <Text style={sortOrder === 'desc' ? styles.selectedOptionText : {}}>Descending</Text>
-              {sortOrder === 'desc' && <MaterialIcons name="check" size={18} color="#6200ee" />}
-            </TouchableOpacity>
+            {["asc", "desc"].map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.sortOption,
+                  sortOrder === option && styles.selectedSortOption,
+                ]}
+                onPress={() => setSortOrder(option)}
+              >
+                <Text
+                  style={sortOrder === option ? styles.selectedOptionText : {}}
+                >
+                  {option === "asc" ? "Ascending" : "Descending"}
+                </Text>
+                {sortOrder === option && (
+                  <MaterialIcons name="check" size={18} color="#6200ee" />
+                )}
+              </TouchableOpacity>
+            ))}
           </View>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.applyButton}
             onPress={() => setShowSortOptions(false)}
           >
@@ -402,54 +482,8 @@ export default function LibraryScreen() {
       </View>
     </Modal>
   );
-  
-  // Render batch operations modal
-  const renderBatchOptionsModal = () => (
-    <Modal
-      visible={showBatchOptions}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={() => setShowBatchOptions(false)}
-    >
-      <View style={styles.modalContainer}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Batch Operations</Text>
-            <TouchableOpacity onPress={() => setShowBatchOptions(false)}>
-              <MaterialIcons name="close" size={24} color="#000" />
-            </TouchableOpacity>
-          </View>
-          
-          <Text style={styles.batchInfoText}>
-            {selectedBooks.length} book{selectedBooks.length !== 1 ? 's' : ''} selected
-          </Text>
-          
-          <TouchableOpacity 
-            style={styles.batchOption}
-            onPress={() => performBatchOperation('status')}
-            disabled={selectedBooks.length === 0}
-          >
-            <MaterialIcons name="swap-horiz" size={24} color="#6200ee" />
-            <Text style={styles.batchOptionText}>
-              Move to {activeTab === READING_STATUS.SAVED ? 'Reading' : 
-                      activeTab === READING_STATUS.READING ? 'Finished' : 'Saved'}
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.batchOption}
-            onPress={() => performBatchOperation('remove')}
-            disabled={selectedBooks.length === 0}
-          >
-            <MaterialIcons name="delete" size={24} color="#f44336" />
-            <Text style={[styles.batchOptionText, {color: '#f44336'}]}>Remove from Library</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
 
-  if (items === null) {
+  if (loading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#6200ee" />
@@ -463,68 +497,39 @@ export default function LibraryScreen() {
   return (
     <View style={styles.container}>
       {renderStatusTabs()}
-      
+
       <View style={styles.toolbarContainer}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.toolbarButton}
           onPress={() => setShowSortOptions(true)}
         >
           <MaterialIcons name="sort" size={24} color="#6200ee" />
           <Text style={styles.toolbarButtonText}>Sort</Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.toolbarButton, batchMode && styles.activeToolbarButton]}
-          onPress={toggleBatchMode}
+
+        <TouchableOpacity
+          style={styles.toolbarButton}
+          onPress={() => fetchLibrary()}
         >
-          <MaterialIcons 
-            name={batchMode ? "close" : "select-all"} 
-            size={24} 
-            color={batchMode ? "#f44336" : "#6200ee"} 
-          />
-          <Text 
-            style={[
-              styles.toolbarButtonText, 
-              batchMode && {color: "#f44336"}
-            ]}
-          >
-            {batchMode ? "Cancel" : "Select"}
-          </Text>
+          <MaterialIcons name="refresh" size={24} color="#6200ee" />
+          <Text style={styles.toolbarButtonText}>Refresh</Text>
         </TouchableOpacity>
-        
-        {batchMode && (
-          <TouchableOpacity 
-            style={styles.toolbarButton}
-            onPress={() => setShowBatchOptions(true)}
-            disabled={selectedBooks.length === 0}
-          >
-            <MaterialIcons 
-              name="more-vert" 
-              size={24} 
-              color={selectedBooks.length === 0 ? "#bdbdbd" : "#6200ee"} 
-            />
-            <Text 
-              style={[
-                styles.toolbarButtonText, 
-                selectedBooks.length === 0 && {color: "#bdbdbd"}
-              ]}
-            >
-              Actions
-            </Text>
-          </TouchableOpacity>
-        )}
       </View>
-      
+
       {items.length === 0 ? (
         <View style={styles.emptyContainer}>
           <MaterialIcons name="library-books" size={64} color="#e0e0e0" />
           <Text style={styles.emptyText}>Your library is empty</Text>
-          <Text style={styles.emptySubtext}>Books you save will appear here</Text>
+          <Text style={styles.emptySubtext}>
+            Books you save will appear here
+          </Text>
         </View>
       ) : filteredItems.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No books in this category</Text>
-          <Text style={styles.emptySubtext}>Try another category or add more books</Text>
+          <Text style={styles.emptySubtext}>
+            Try another category or add more books
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -532,12 +537,13 @@ export default function LibraryScreen() {
           keyExtractor={(i) => String(i.id)}
           renderItem={renderBookItem}
           contentContainerStyle={styles.listContainer}
+          onRefresh={() => fetchLibrary()}
+          refreshing={refreshing}
         />
       )}
-      
+
       {renderStatusModal()}
       {renderSortOptionsModal()}
-      {renderBatchOptionsModal()}
     </View>
   );
 }
@@ -573,7 +579,6 @@ const styles = StyleSheet.create({
     color: "#6200ee",
     fontWeight: "bold",
   },
-  // Toolbar styles
   toolbarContainer: {
     flexDirection: "row",
     padding: 8,
@@ -590,127 +595,59 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: "#f0f0f0",
   },
-  activeToolbarButton: {
-    backgroundColor: "#ffebee",
-  },
   toolbarButtonText: {
     marginLeft: 4,
     fontSize: 14,
     color: "#6200ee",
   },
-  // Sort modal styles
-  modalContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  sortOptionSection: {
-    marginBottom: 16,
-  },
-  sortOptionTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 8,
-    color: "#424242",
-  },
-  sortOption: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-  },
-  selectedSortOption: {
-    backgroundColor: "#f3e5f5",
-  },
-  selectedOptionText: {
-    color: "#6200ee",
-    fontWeight: "500",
-  },
-  applyButton: {
-    backgroundColor: "#6200ee",
-    paddingVertical: 12,
-    borderRadius: 4,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  applyButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  // Batch operation styles
-  batchInfoText: {
-    fontSize: 16,
-    textAlign: "center",
-    marginBottom: 16,
-    color: "#424242",
-  },
-  batchOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-  },
-  batchOptionText: {
-    marginLeft: 12,
-    fontSize: 16,
-    color: "#424242",
-  },
-  // Book item with selection
-  bookItemSelected: {
-    backgroundColor: "#e8f5e9",
-    borderWidth: 2,
-    borderColor: "#6200ee",
-  },
-  selectionIndicator: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    backgroundColor: "#6200ee",
-    borderRadius: 12,
-    width: 24,
-    height: 24,
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 1,
-  },
   listContainer: {
-    padding: 16,
+    padding: 8,
   },
   bookCard: {
     flexDirection: "row",
     backgroundColor: "#fff",
     borderRadius: 8,
-    padding: 16,
+    padding: 12,
     marginBottom: 12,
-    elevation: 1,
+    marginHorizontal: 4,
+    elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 1,
   },
-  bookInfo: {
+  coverSection: {
+    marginRight: 12,
+  },
+  bookCover: {
+    width: 80,
+    height: 120,
+    borderRadius: 6,
+  },
+  placeholderCover: {
+    width: 80,
+    height: 120,
+    borderRadius: 6,
+    backgroundColor: "#9e9e9e",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  bookInfoSection: {
     flex: 1,
   },
   bookTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "bold",
+    color: "#212121",
     marginBottom: 4,
   },
+  bookAuthor: {
+    fontSize: 13,
+    color: "#757575",
+    marginBottom: 8,
+  },
   progressContainer: {
-    marginTop: 8,
+    marginBottom: 8,
   },
   progressBar: {
     height: 6,
@@ -723,13 +660,34 @@ const styles = StyleSheet.create({
     backgroundColor: "#6200ee",
   },
   progressText: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#757575",
     marginTop: 4,
   },
-  statusButton: {
-    justifyContent: "center",
-    padding: 8,
+  actionButtonsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  smallButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f5f5f5",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 4,
+  },
+  deleteButton: {
+    backgroundColor: "#ffebee",
+  },
+  readButton: {
+    backgroundColor: "#6200ee",
+  },
+  smallButtonText: {
+    marginLeft: 4,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#6200ee",
   },
   emptyContainer: {
     flex: 1,
@@ -765,6 +723,18 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
   },
   modalTitle: {
     fontSize: 18,
@@ -837,9 +807,46 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#6200ee",
   },
-  center: { 
-    flex: 1, 
-    alignItems: "center", 
-    justifyContent: "center" 
+  sortOptionSection: {
+    marginBottom: 16,
+  },
+  sortOptionTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 8,
+    color: "#424242",
+  },
+  sortOption: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+  },
+  selectedSortOption: {
+    backgroundColor: "#f3e5f5",
+  },
+  selectedOptionText: {
+    color: "#6200ee",
+    fontWeight: "500",
+  },
+  applyButton: {
+    backgroundColor: "#6200ee",
+    paddingVertical: 12,
+    borderRadius: 4,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  applyButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

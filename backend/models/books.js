@@ -27,7 +27,18 @@ const newBookSchema = new mongoose.Schema(
       },
     ],
     views: { type: Number, default: 0 },
-    likes: { type: Number, default: 0 },
+    likes: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "NewUser",
+      },
+    ],
+    comment: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Comment",
+      },
+    ],
     completionPercentage: { type: Number, default: 0 },
   },
   { timestamps: true }

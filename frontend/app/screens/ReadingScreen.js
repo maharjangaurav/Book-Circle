@@ -64,7 +64,7 @@ export default function ReadingScreen({ route, navigation }) {
     fetchReadingProgress();
     loadBookmarks();
     loadReadingPreferences();
-  }, [featchedbook]);
+  }, [bookId]);
 
   const fetchBookDetails = async () => {
     setLoading(true);

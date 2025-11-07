@@ -4,6 +4,10 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const bookRouter = require("./routes/books");
 const chapterRouter = require("./routes/chapter");
+const likeRouter = require("./routes/likes");
+const commentRouter = require("./routes/comment");
+const libraryRouter = require("./routes/library");
+const notificationRouter = require("./routes/notification");
 const authRoutes = require("./routes/auth");
 const authMiddleware = require("./middleware/authMiddleware");
 const path = require("path");
@@ -30,6 +34,10 @@ app.use("/images", express.static(path.join(__dirname, "public", "images")));
 app.use("/books", bookRouter);
 app.use("/chapter", chapterRouter);
 app.use("/api/auth", authRoutes);
+app.use("/api/likes", likeRouter);
+app.use("/api/comments", commentRouter);
+app.use("/api/library", libraryRouter);
+app.use("/api/notifications", notificationRouter);
 app.get("/api/user/profile", authMiddleware, (req, res) => {
   res.json({
     message: "This is a protected route",

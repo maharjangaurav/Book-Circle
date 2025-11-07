@@ -1,4 +1,6 @@
 const NewBook = require("../models/books");
+const User = require("../models/User");
+const Notification = require("../models/notification");
 
 // Create (Writer publishes a book)
 exports.createBook = async (req, res) => {
@@ -38,6 +40,7 @@ exports.createBook = async (req, res) => {
       status,
     });
     await newBook.save();
+
     res.status(200).json({ success: true, data: newBook });
   } catch (error) {
     res.status(500).json({ message: `Server error: ${error}` });
@@ -67,6 +70,13 @@ exports.getBooks = async (req, res) => {
     const books = await NewBook.find(filter)
       .populate("author", "_id name email")
       .populate("chapters");
+    // .populate({
+    //   path: "comment",
+    //   populate: {
+    //     path: "user",
+    //     select: "_id name email",
+    //   },
+    // });
 
     res.status(200).json({ success: true, data: books });
   } catch (e) {
@@ -117,6 +127,23 @@ exports.updateBook = async (req, res) => {
       updateData,
       { new: true }
     );
+    if (req.body.status === "finished") {
+      await Notification.create({
+        title: `${updatedBook.title} is published`,
+        message: `Your book "${updatedBook.title}" has been published successfully!`,
+        user: updatedBook.author,
+      });
+
+      const allUsers = await User.find({}, "_id");
+      const notifications = allUsers.map((user) => ({
+        title: "New Book Available",
+        message: `Check out the latest release "${updatedBook.title}" in your favourite genre!`,
+        user: user._id,
+      }));
+
+      await Notification.insertMany(notifications);
+    }
+
     res.status(200).json(updatedBook);
   } catch (error) {
     res.status(500).json({ message: "Error updating book" });
