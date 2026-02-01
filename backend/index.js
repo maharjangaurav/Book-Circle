@@ -29,6 +29,7 @@ const app = express();
 app.use(express.json());
 app.use(cors({ origin: "*" }));
 
+
 app.use("/uploads", express.static(__dirname + "/uploads"));
 app.use("/images", express.static(path.join(__dirname, "public", "images")));
 app.use("/books", bookRouter);
@@ -44,5 +45,7 @@ app.get("/api/user/profile", authMiddleware, (req, res) => {
     user: req.user,
   });
 });
+
+
 
 app.listen(3000, () => console.log("🚀 Server started on port 3000"));

@@ -41,7 +41,10 @@ exports.getLibrary = async (req, res) => {
     const userId = req.user.id;
 
     const libraryItems = await LibraryItem.find({ user: userId })
-      .populate("book")
+      .populate({
+        path: "book",
+        populate: { path: "author", select: "name" },
+      })
       .sort({ lastReadAt: -1 });
 
     res.status(200).json({
@@ -86,41 +89,6 @@ exports.updateStatus = async (req, res) => {
   }
 };
 
-// Update reading progress
-exports.updateProgress = async (req, res) => {
-  try {
-    const { libraryItemId } = req.params;
-    const { progress } = req.body;
-    const userId = req.user.id;
-
-    if (progress < 0 || progress > 100) {
-      return res
-        .status(400)
-        .json({ message: "Progress must be between 0 and 100" });
-    }
-
-    const libraryItem = await LibraryItem.findById(libraryItemId);
-
-    if (!libraryItem || libraryItem.user.toString() !== userId.toString()) {
-      return res.status(403).json({ message: "Unauthorized" });
-    }
-
-    libraryItem.progress = progress;
-    libraryItem.lastReadAt = new Date();
-
-    if (progress === 100) {
-      libraryItem.status = "finished";
-    }
-
-    await libraryItem.save();
-
-    res.status(200).json({ success: true, data: libraryItem });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error updating progress", error: error.message });
-  }
-};
 
 // Remove book from library
 exports.removeFromLibrary = async (req, res) => {
@@ -168,3 +136,42 @@ exports.getLibraryItemByBook = async (req, res) => {
       .json({ message: "Error fetching library item", error: error.message });
   }
 };
+
+// Get progress
+exports.getProgress = async (req, res) => {
+  try {
+    const { libraryId } = req.params;
+    const libraryItem = await LibraryItem.findById(libraryId);
+
+    if (!libraryItem || libraryItem.user.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    res.status(200).json({ success: true, data: { progress: libraryItem.progress || 0 } });
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching progress", error: error.message });
+  }
+};
+
+// Update progress
+exports.updateProgress = async (req, res) => {
+  try {
+    const { libraryId } = req.params;
+    const { progress, currentPage } = req.body;
+    const libraryItem = await LibraryItem.findById(libraryId);
+
+    if (!libraryItem || libraryItem.user.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+    libraryItem.progress = progress ?? libraryItem.progress;
+    libraryItem.currentPage = currentPage ?? libraryItem.currentPage;
+    libraryItem.lastReadAt = new Date();
+    
+    await libraryItem.save();
+
+    res.status(200).json({ success: true, data: libraryItem });
+  } catch (error) {
+    res.status(500).json({ message: "Error updating progress", error: error.message });
+  }
+};
+

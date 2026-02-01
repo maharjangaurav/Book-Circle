@@ -27,6 +27,9 @@ const libraryItemSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    currentPage: { 
+      type: Number, default: 1
+     },
   },
   { timestamps: true }
 );

@@ -1,7 +1,39 @@
 const Chapter = require("../models/chapter");
 const NewBook = require("../models/books");
 
-// Get all chapters for a book
+// Get chapters by book ID
+exports.getChaptersByBookId = async (req, res) => {
+  try {
+    const { bookId } = req.params;
+    
+    const book = await NewBook.findById(bookId).populate({
+      path: 'chapters',
+      options: { sort: { order_number: 1 } }
+    });
+    
+    if (!book) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Book not found" 
+      });
+    }
+    
+    return res.status(200).json({ 
+      success: true, 
+      data: book.chapters 
+    });
+    
+  } catch (err) {
+    console.error("Error getting chapters by book ID:", err);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Server Error", 
+      error: err.message 
+    });
+  }
+};
+
+// Get all chapters
 exports.getChapters = async (req, res) => {
   try {
     const chapters = await Chapter.find({}).sort("order_number");
@@ -42,6 +74,7 @@ exports.createChapter = async (req, res) => {
       });
     }
     const chapter = new Chapter({
+      book: req.body.book,  // ✅ Add this
       title: req.body.title,
       content: req.body.content || "",
       order_number: req.body.order_number,
@@ -67,7 +100,10 @@ exports.getChapterById = async (req, res) => {
   try {
     const chapter = await Chapter.findById(req.params.id);
     if (!chapter) return res.status(404).json({ message: "Chapter not found" });
-    res.json(chapter);
+    return res.status(200).json({  // ✅ Correct format
+      success: true,
+      data: chapter
+    });
   } catch (err) {
     res.status(500).json({ message: "Server Error", error: err.message });
   }
@@ -136,13 +172,14 @@ exports.updateContent = async (req, res) => {
       { new: true }
     );
 
-    res.status(200).json({ success: true, updatedContent });
+    res.status(200).json({ success: true, data: updatedContent });
+
   } catch (err) {
     res.status(500).json({ message: "Server Error", error: err.message });
   }
 };
 
-// Delete book
+// Delete chapter
 exports.deleteChapter = async (req, res) => {
   try {
     await NewBook.findByIdAndUpdate(req.params.bookId, {
@@ -154,3 +191,4 @@ exports.deleteChapter = async (req, res) => {
     res.status(500).json({ message: "Error deleting Chapter" });
   }
 };
+
