@@ -37,7 +37,14 @@ export default function EditContentScreen() {
     try {
       setLoading(true);
       const response = await BooksAPI.getById(`chapter/readbyid/${chapterId}`);
-      setContent(response.content || "");
+      // ✅ Check response structure
+    if (!response || !response.success || !response.data) {
+      Alert.alert("Error", "Failed to load chapter content");
+      setContent("");
+      return;
+    }
+    
+    setContent(response.data.content || "");  // ✅ Correct path
     } catch (error) {
       console.error("Error fetching chapter:", error);
       Alert.alert("Error", "Failed to load chapter content");
@@ -54,9 +61,17 @@ export default function EditContentScreen() {
 
     setSaving(true);
     try {
-      await BooksAPI.update(`chapter/read/${chapterId}`, { content });
+       // ✅ Use correct endpoint for content-only updates
+    const response = await BooksAPI.update(`chapter/read/content/${chapterId}`, { 
+      content 
+    });
+    
+    if (response?.success) {
       Alert.alert("Success", "Chapter content updated successfully!");
       navigation.goBack();
+      } else {
+      Alert.alert("Error", response?.error || "Failed to save content");
+    }
     } catch (error) {
       console.error("Error saving chapter:", error);
       Alert.alert("Error", "Failed to save chapter content");

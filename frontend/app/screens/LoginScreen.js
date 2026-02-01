@@ -28,7 +28,7 @@ export default function LoginScreen({ navigation }) {
     if (!email) newErrors.email = "Email is required"
     else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = "Email is invalid"
 
-    if (!password) newErrors.password = "Password is required"
+    if (!password) newErrors.password = "Password cannot be empty."
     else if (password.length < 6) newErrors.password = "Password must be at least 6 characters"
 
     setErrors(newErrors)
@@ -89,9 +89,9 @@ export default function LoginScreen({ navigation }) {
           </View>
 
           <TouchableOpacity
-            style={[styles.button, (!email || !password || isLoading) && styles.buttonDisabled]}
+            style={[styles.button, isLoading && styles.buttonDisabled]}
             onPress={handleLogin}
-            disabled={isLoading || !email || !password}
+            disabled={isLoading}
           >
             {isLoading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.buttonText}>Login</Text>}
           </TouchableOpacity>

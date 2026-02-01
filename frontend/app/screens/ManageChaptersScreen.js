@@ -83,19 +83,35 @@ export default function ManageChaptersScreen() {
       setNewChapter("");
       setShowAddModal(false);
       if (response?.success) {
-        setChapters([...chapters, Chapter]);
-        Alert.alert("Success", "Chapter Added successfully!");
-        navigation.goBack();
-      } else {
-        Alert.alert("Error", response?.message);
-      }
-    } catch (error) {
-      console.error("Error adding chapter:", error);
-      Alert.alert("Error", "Failed to add chapter");
-    } finally {
-      setAddingChapter(false);
+      // Clear form
+      setNewChapterTitle("");
+      setNewChapter("");
+      setShowAddModal(false);
+      
+      // Show success alert with callback
+      Alert.alert("Success", "Chapter Added Successfully!", [
+        {
+          text: "OK",
+          onPress: () => {
+            // ✅ REFRESH chapters list
+            fetchChapters();
+            
+            // ✅ DON'T navigate away, just close modal and stay on ManageChapters
+            // The modal is already closed, so we're already on ManageChapters
+            // Just make sure chapters list is refreshed
+          }
+        }
+      ]);
+    } else {
+      Alert.alert("Error", response?.message || "Failed to add chapter");
     }
-  };
+  } catch (error) {
+    console.error("Error adding chapter:", error);
+    Alert.alert("Error", "Failed to add chapter");
+  } finally {
+    setAddingChapter(false);
+  }
+};
 
   const handleDeleteChapter = (chapterIndex, chapterId) => {
     Alert.alert(
@@ -178,7 +194,16 @@ export default function ManageChaptersScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity  onPress={() => {
+          console.log("🔙 Navigating back to WriterScreen Drafts tab");
+          // 🔥 FIX: Navigate to Writer with drafts tab
+          navigation.navigate("Writer", {
+            activeTab: "drafts",
+            refreshBooks: true,
+            fromManageChapters: true,
+            bookId: bookId
+          });
+        }} >
           <MaterialIcons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Manage Chapters</Text>

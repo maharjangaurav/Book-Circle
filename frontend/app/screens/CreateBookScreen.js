@@ -147,14 +147,32 @@ export default function CreateBookScreen() {
       });
 
       const data = await response.json();
-
-      if (response.ok) {
-        Alert.alert("Success", "Book created successfully!");
+      
+        if (response.ok) {
+      Alert.alert("Success", "Book created successfully!", [
+        {
+          text: "OK",
+          onPress: () => {
+            // 🔥 KEY FIX: Navigate back to Writer with params
+            navigation.navigate("Writer", { 
+              screen: "WriterScreen", // or whatever your Writer screen is named
+              params: { 
+                activeTab: "Drafts", // This will switch to drafts tab
+                showSuccess: true,
+                successMessage: "Book created successfully!"
+              }
+            });
+          }
+        }
+      ]);
+      
+      // Call fetchBooks callback if provided
+      if (fetchBooks) {
         fetchBooks();
-        navigation.goBack();
-      } else {
-        throw new Error(data.message || "Failed to create book");
       }
+    } else {
+      throw new Error(data.message || "Failed to create book");
+    }
     } catch (error) {
       console.error("Error creating book:", error);
       Alert.alert("Error", "Failed to create book");

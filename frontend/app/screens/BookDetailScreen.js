@@ -114,26 +114,36 @@ export default function BookDetailScreen({ route, navigation }) {
   }
 
   const checkLibraryStatus = async () => {
-    try {
-      const libraryItem = await BooksAPI.getById(`api/library/${bookId}`);
-      console.log("Library item fetched:", libraryItem);
-      if (libraryItem) {
-        setLibraryStatus(libraryItem.data?.status);
-        setLibraryItemId(libraryItem?.data?._id || null);
-        setBook((prev) => ({
-          ...prev,
-          libraryId: libraryItem.data?._id,
-        }));
-      }
-    } catch (error) {
-      console.error("Error checking library status:", error);
-      // Fallback to AsyncStorage
-      const status = await AsyncStorageHelper.getBookStatus(bookId);
-      if (status) {
-        setLibraryStatus(status);
-      }
+  try {
+    const libraryItem = await BooksAPI.getById(`api/library/${bookId}`);
+    console.log("📚 Library item fetched:", libraryItem);
+    
+    if (libraryItem && libraryItem.data) {
+      setLibraryStatus(libraryItem.data?.status);
+      setLibraryItemId(libraryItem.data?._id || null);
+      
+      // Update the book with libraryId
+      setBook(prev => prev ? {
+        ...prev,
+        libraryId: libraryItem.data?._id,
+        libraryStatus: libraryItem.data?.status
+      } : prev);
+      
+      console.log("✅ Library ID set:", libraryItem.data?._id);
+    } else {
+      console.log("📚 Book is not in library yet");
+      setLibraryStatus(null);
+      setLibraryItemId(null);
     }
-  };
+  } catch (error) {
+    console.error("❌ Error checking library status:", error);
+    // Fallback to AsyncStorage
+    const status = await AsyncStorageHelper.getBookStatus(bookId);
+    if (status) {
+      setLibraryStatus(status);
+    }
+  }
+};
 
   const toggleLike = async () => {
     try {
@@ -201,26 +211,54 @@ export default function BookDetailScreen({ route, navigation }) {
   };
 
   const addToLibrary = async (status) => {
-    setSavingToLibrary(true);
-    try {
-      const response = await BooksAPI.create(`api/library/${bookId}`, {
-        status,
-      });
-      setLibraryStatus(status);
-      setSavingToLibrary(false);
-      await AsyncStorageHelper.saveToLibrary(book, status);
-      Alert.alert(
-        "Success",
-        status === "saved"
-          ? "Book saved to your library"
-          : "You've started reading this book"
-      );
-    } catch (error) {
-      console.error("Error adding to library:", error);
-      Alert.alert("Error", "Failed to add book to library. Please try again.");
-      setSavingToLibrary(false);
+  setSavingToLibrary(true);
+  try {
+    const response = await BooksAPI.create(`api/library/${bookId}`, {
+      status,
+    });
+    
+    console.log("✅ Added to library:", response);
+    
+    // Get the library item ID from response
+    const newLibraryItemId = response.data?._id;
+    
+    setLibraryStatus(status);
+    setLibraryItemId(newLibraryItemId);
+    
+    // Update book with libraryId
+    setBook(prev => prev ? {
+      ...prev,
+      libraryId: newLibraryItemId
+    } : prev);
+    
+    await AsyncStorageHelper.saveToLibrary(book, status);
+    
+    Alert.alert(
+      "Success",
+      status === "saved"
+        ? "Book saved to your library"
+        : "You've started reading this book"
+    );
+    
+    // If status is "reading", navigate to ReadingScreen
+    if (status === "reading") {
+      console.log("📖 Auto-navigating to ReadingScreen after adding to library");
+      setTimeout(() => {
+        navigation.navigate("Reading", {
+          bookId: book.id,
+          libraryId: newLibraryItemId,
+          featchedbook: book,
+          fromBookDetails: true,
+        });
+      }, 500);
     }
-  };
+  } catch (error) {
+    console.error("❌ Error adding to library:", error);
+    Alert.alert("Error", "Failed to add book to library. Please try again.");
+  } finally {
+    setSavingToLibrary(false);
+  }
+};
 
   const updateLibraryStatus = async (newStatus) => {
     try {
@@ -299,24 +337,39 @@ export default function BookDetailScreen({ route, navigation }) {
             )}
 
             <TouchableOpacity
-              style={styles.readNowButton}
-              onPress={() =>
-                navigation.navigate("Reading", {
-                  bookId: book.id,
-                  libraryId: book.libraryId,
-                  featchedbook: book,
-                })
-              }
-            >
-              <MaterialIcons name="menu-book" size={16} color="#fff" />
-              <Text style={styles.readNowButtonText}>
-                {libraryStatus === "reading" ? "Continue Reading" : "Read Now"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      );
-    }
+                  style={styles.readNowButton}
+                  onPress={() => {
+                    console.log("📖 Navigating to ReadingScreen:");
+                    console.log("📖 Book ID:", book.id);
+                    console.log("📖 Library ID:", libraryItemId); // Use the state variable
+                    console.log("📖 Library Status:", libraryStatus);
+                            // Determine which library ID to use
+                    const effectiveLibraryId = libraryItemId || book.libraryId;
+                    
+                    if (!effectiveLibraryId) {
+                      console.error("❌ No libraryId found! This shouldn't happen.");
+                      Alert.alert("Error", "Unable to find library information. Please try adding to library again.");
+                      return;
+                    }
+
+                    navigation.navigate("Reading", {
+                      bookId: book.id,
+                      libraryId: libraryItemId, // Use libraryItemId state variable
+                      featchedbook: book,
+                      fromBookDetails: true, // Add this flag
+                    });
+                  }}
+                >
+                  <MaterialIcons name="menu-book" size={16} color="#fff" />
+                  <Text style={styles.readNowButtonText}>
+                    {libraryStatus === "reading" ? "Continue Reading" : "Read Now"}
+                    </Text>
+                  </TouchableOpacity>
+
+              </View>
+            </View>
+          );
+        }
 
     return (
       <View style={styles.actionButtons}>

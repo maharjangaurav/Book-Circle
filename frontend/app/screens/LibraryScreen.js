@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -13,18 +14,25 @@ import {
   Image,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { LibraryAPI } from "../api/library";
 import { AsyncStorageHelper } from "../utils/asyncStorageHelper";
 import { API_URL } from "@env";
 import { useFocusEffect } from "@react-navigation/native";
-import { BooksAPI } from "../api/books";
+
+// ✅ IMPORT CORRECT API FUNCTIONS from utils/api.js
+import {
+  getLibraryAPI,           // Get all library items
+  updateLibraryStatusAPI,   // Update reading status
+  removeFromLibraryAPI,     // Remove from library
+  addToLibraryAPI,         // Add to library
+  getReadingProgressAPI,    // Get reading progress
+  updateReadingProgressAPI, // Update reading progress
+} from "../utils/api";
 
 const READING_STATUS = {
   SAVED: "saved",
   READING: "reading",
   FINISHED: "finished",
 };
-
 export default function LibraryScreen({ navigation }) {
   const [items, setItems] = useState([]);
   const [activeTab, setActiveTab] = useState(READING_STATUS.SAVED);
@@ -36,72 +44,33 @@ export default function LibraryScreen({ navigation }) {
   const [sortOrder, setSortOrder] = useState("asc");
   const [showSortOptions, setShowSortOptions] = useState(false);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      fetchLibrary();
-    }, [])
-  );
-
-  useEffect(() => {
-    fetchLibrary();
-  }, []);
-
-  const fetchLibrary = async () => {
-    try {
-      setLoading(true);
-      const libraryData = await BooksAPI.get(`api/library`);
-      console.log("Fetched library data:", libraryData);
-
-      const transformedItems = libraryData.data.map((item) => ({
-        id: item._id,
-        bookId: item.book._id,
-        book_title: item.book.title,
-        book_author: item.book.author?.name || "Unknown",
-        book_cover: item.book.coverImage,
-        status: item.status,
-        progress: item.progress || 0,
-        lastReadAt: item.lastReadAt,
-        addedAt: item.createdAt,
-        book: item.book,
-      }));
-
-      setItems(transformedItems);
-      setLoading(false);
-    } catch (error) {
-      console.error("Error fetching library:", error);
-      const localLibrary = await AsyncStorageHelper.getLibrary();
-      const transformedItems = localLibrary.map((item) => ({
-        id: item.id,
-        bookId: item.id,
-        book_title: item.title,
-        book_author: item.author || "Unknown",
-        book_cover: item.coverImage,
-        status: item.status,
-        progress: item.progress || 0,
-        lastReadAt: item.lastReadAt,
-        addedAt: item.addedAt,
-      }));
-      setItems(transformedItems);
-      setLoading(false);
-      Alert.alert("Info", "Showing local library (offline mode)");
-    }
-  };
-
   const getFilteredAndSortedBooks = () => {
-    if (!items) return [];
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      console.log("📊 No items to filter/sort");
+      return [];
+    }
 
-    const filteredBooks = items.filter((item) => item.status === activeTab);
+    console.log(`📊 Filtering books for tab: ${activeTab}`);
+    
+    // Filter by active tab
+    const filteredBooks = items.filter((item) => {
+      const matches = item.status === activeTab;
+      return matches;
+    });
 
-    return filteredBooks.sort((a, b) => {
+    console.log(`📊 Found ${filteredBooks.length} books in ${activeTab}`);
+
+    // Sort the filtered books
+    const sortedBooks = filteredBooks.sort((a, b) => {
       if (sortBy === "title") {
-        const titleA = a.book_title.toLowerCase();
-        const titleB = b.book_title.toLowerCase();
+        const titleA = (a.book_title || "").toLowerCase();
+        const titleB = (b.book_title || "").toLowerCase();
         return sortOrder === "asc"
           ? titleA.localeCompare(titleB)
           : titleB.localeCompare(titleA);
       } else if (sortBy === "author") {
-        const authorA = a.book_author.toLowerCase();
-        const authorB = b.book_author.toLowerCase();
+        const authorA = (a.book_author || "").toLowerCase();
+        const authorB = (b.book_author || "").toLowerCase();
         return sortOrder === "asc"
           ? authorA.localeCompare(authorB)
           : authorB.localeCompare(authorA);
@@ -112,98 +81,267 @@ export default function LibraryScreen({ navigation }) {
       }
       return 0;
     });
+        return sortedBooks;
   };
+  
+  // Fetch library on focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchLibrary();
+    }, [])
+  );
+
+  // Replace your fetchLibrary function:
+const fetchLibrary = async () => {
+  try {
+    setLoading(true);
+    
+    console.log("📱 Fetching library from API...");
+    
+    // ✅ Use the imported getLibraryAPI function
+    const response = await getLibraryAPI(); // This calls /api/library
+    
+    console.log("📦 Full API response:", JSON.stringify(response, null, 2));
+    
+    // Debug the response structure
+    if (response.success) {
+      console.log("✅ API call successful");
+      console.log("📊 Response data:", response.data);
+      console.log("📊 Response data type:", typeof response.data);
+      
+      if (response.data) {
+        console.log("📊 Is array?", Array.isArray(response.data));
+        console.log("📊 Data keys:", Object.keys(response.data));
+      }
+    } else {
+      console.log("❌ API error:", response.error);
+    }
+    
+    // Try different response structures
+    const apiLibrary = response.data;
+    
+    // Handle different possible response structures
+    let itemsArray = [];
+    
+    if (Array.isArray(apiLibrary)) {
+      // Case 1: Direct array
+      console.log("📊 Case 1: Direct array");
+      itemsArray = apiLibrary;
+    } else if (apiLibrary && apiLibrary.data && Array.isArray(apiLibrary.data)) {
+      // Case 2: { data: [...] }
+      console.log("📊 Case 2: Nested data array");
+      itemsArray = apiLibrary.data;
+    } else if (apiLibrary && Array.isArray(apiLibrary.items)) {
+      // Case 3: { items: [...] }
+      console.log("📊 Case 3: Items array");
+      itemsArray = apiLibrary.items;
+    } else if (apiLibrary && apiLibrary.books) {
+      // Case 4: { books: [...] }
+      console.log("📊 Case 4: Books array");
+      itemsArray = apiLibrary.books;
+    } else if (apiLibrary && typeof apiLibrary === 'object') {
+      // Case 5: Single object or something else
+      console.log("📊 Case 5: Single object or other structure");
+      itemsArray = [apiLibrary];
+    } else {
+      console.log("📊 Case 6: No valid data found");
+      itemsArray = [];
+    }
+    
+    console.log("📊 Items to process:", itemsArray.length);
+    
+    if (itemsArray.length > 0) {
+      const transformedItems = itemsArray.map((item) => ({
+        id: item._id || item.id || `lib-${Date.now()}`,
+        bookId: item.book?._id || item.bookId || item.book || "unknown",
+        book_title: item.book?.title || item.title || "Untitled",
+        book_author: item.book?.author?.name || item.book?.author || item.author || "Unknown",
+        book_cover: item.book?.coverImage || item.book_cover || item.cover || null,
+        status: item.status || "saved",
+        progress: item.progress || 0,
+        currentPage: item.currentPage || 1,
+        lastReadAt: item.lastReadAt || item.updatedAt || new Date().toISOString(),
+        addedAt: item.createdAt || new Date().toISOString(),
+        book: item.book || null,
+      }));
+
+      console.log("✅ Transformed items:", transformedItems.length);
+      
+      setItems(transformedItems);
+      
+      // Save to local storage
+      await AsyncStorageHelper.clearLibrary();
+      for (const transformedItem of transformedItems) {
+        await AsyncStorageHelper.saveToLibrary(transformedItem, transformedItem.status);
+      }
+    } else {
+      console.log("📭 No library items found");
+      setItems([]);
+    }
+    
+    setLoading(false);
+  } catch (error) {
+    console.error("❌ Error fetching library:", error);
+    console.error("❌ Error stack:", error.stack);
+    
+    // Fallback to local storage
+    try {
+      const localLibrary = await AsyncStorageHelper.getLibrary();
+      console.log("📱 Fallback to local storage, items:", localLibrary.length);
+      setItems(localLibrary);
+    } catch (storageError) {
+      console.error("❌ Error with local storage:", storageError);
+      setItems([]);
+    }
+    
+    setLoading(false);
+  }
+};
 
   const updateReadingStatus = async (libraryItemId, newStatus) => {
-    try {
-      const libraryItem = await BooksAPI.update(
-        `api/library/${libraryItemId}/status`,
-        { newStatus }
-      );
-      // await LibraryAPI.updateStatus(libraryItemId, newStatus);
-
+  try {
+    // ✅ Use updateLibraryStatusAPI from utils/api.js
+    const response = await updateLibraryStatusAPI(libraryItemId, newStatus);
+    
+    if (response.success) {
+      // Update UI state
       setItems((prevItems) =>
         prevItems.map((item) =>
           item.id === libraryItemId ? { ...item, status: newStatus } : item
         )
       );
 
-      const localLibrary = await AsyncStorageHelper.getLibrary();
-      const updatedLocalLibrary = localLibrary.map((item) =>
-        item.id === libraryItemId ? { ...item, status: newStatus } : item
-      );
-      await AsyncStorageHelper.saveToLibrary(updatedLocalLibrary[0], newStatus);
+      // Update local storage
+      await AsyncStorageHelper.updateReadingStatus(libraryItemId, newStatus);
 
       if (modalVisible) setModalVisible(false);
       Alert.alert("Success", "Book status updated");
-    } catch (error) {
-      console.error("Error updating status:", error);
-      await AsyncStorageHelper.updateReadingStatus(libraryItemId, newStatus);
-      setItems((prevItems) =>
-        prevItems.map((item) =>
-          item.id === libraryItemId ? { ...item, status: newStatus } : item
-        )
-      );
-      if (modalVisible) setModalVisible(false);
+    } else {
+      throw new Error(response.error);
     }
-  };
+  } catch (error) {
+    console.error("Error updating status:", error);
+    
+    // Offline fallback - update locally
+    await AsyncStorageHelper.updateReadingStatus(libraryItemId, newStatus);
+    setItems((prevItems) =>
+      prevItems.map((item) =>
+        item.id === libraryItemId ? { ...item, status: newStatus } : item
+      )
+    );
+    
+    if (modalVisible) setModalVisible(false);
+    Alert.alert("Updated locally", "Will sync when online");
+  }
+};
 
-  const updateReadingProgress = async (libraryItemId, progress) => {
-    try {
-      const libraryItem = await BooksAPI.update(
-        `api/library/${libraryItemId}/status`,
-        { progress }
-      );
-      // await LibraryAPI.updateProgress(libraryItemId, progress);
+  const updateReadingProgress = async (
+  libraryItemId,
+  progress,
+  currentPage = 1
+) => {
+  try {
+    // 🔹 Clamp progress safely (0–100)
+    const safeProgress = Math.max(0, Math.min(progress, 100));
+    const safePage = Math.max(1, currentPage);
 
-      setItems((prevItems) =>
-        prevItems.map((item) =>
-          item.id === libraryItemId ? { ...item, progress } : item
-        )
-      );
+    // 🔹 Update backend
+    await BooksAPI.update(
+      `api/library/${libraryItemId}/progress`,
+      {
+        progress: safeProgress,
+        currentPage: safePage,
+      }
+    );
 
-      await AsyncStorageHelper.updateReadingProgress(libraryItemId, progress);
-    } catch (error) {
-      console.error("Error updating progress:", error);
-      await AsyncStorageHelper.updateReadingProgress(libraryItemId, progress);
-      setItems((prevItems) =>
-        prevItems.map((item) =>
-          item.id === libraryItemId ? { ...item, progress } : item
-        )
-      );
-    }
-  };
+    // 🔹 Update UI list immediately
+    setItems((prevItems) =>
+      prevItems.map((item) =>
+        item.id === libraryItemId
+          ? {
+              ...item,
+              progress: safeProgress,
+              lastReadAt: new Date().toISOString(),
+            }
+          : item
+      )
+    );
+
+    // 🔹 Update selected modal book
+    setSelectedBook((prev) =>
+      prev
+        ? {
+            ...prev,
+            progress: safeProgress,
+            lastReadAt: new Date().toISOString(),
+          }
+        : prev
+    );
+
+    // 🔹 Save locally (offline-safe)
+    await AsyncStorageHelper.updateReadingProgress(
+      libraryItemId,
+      safeProgress,
+      safePage
+    );
+  } catch (error) {
+    console.error("Error updating progress:", error);
+
+    // 🔹 Offline fallback
+    await AsyncStorageHelper.updateReadingProgress(
+      libraryItemId,
+      progress,
+      currentPage
+    );
+
+    setItems((prevItems) =>
+      prevItems.map((item) =>
+        item.id === libraryItemId
+          ? { ...item, progress }
+          : item
+      )
+    );
+  }
+};
 
   const removeFromLibrary = async (libraryItemId) => {
-    Alert.alert("Remove Book", "Remove this book from your library?", [
-      { text: "Cancel" },
-      {
-        text: "Remove",
-        onPress: async () => {
-          try {
-            const libraryItem = await BooksAPI.delete(
-              `api/library/${libraryItemId}`
-            );
-            // await LibraryAPI.remove(libraryItemId);
-
+  Alert.alert("Remove Book", "Remove this book from your library?", [
+    { text: "Cancel" },
+    {
+      text: "Remove",
+        style: "destructive",
+      onPress: async () => {
+        try {
+          // ✅ Use removeFromLibraryAPI from utils/api.js
+          const response = await removeFromLibraryAPI(libraryItemId);
+          
+          if (response.success) {
+            // Remove from UI
             setItems((prevItems) =>
               prevItems.filter((item) => item.id !== libraryItemId)
             );
+            
+            // Remove from local storage
             await AsyncStorageHelper.removeFromLibrary(libraryItemId);
-
+            
             Alert.alert("Success", "Book removed from library");
-          } catch (error) {
-            console.error("Error removing book:", error);
-            setItems((prevItems) =>
-              prevItems.filter((item) => item.id !== libraryItemId)
-            );
-            await AsyncStorageHelper.removeFromLibrary(libraryItemId);
-            Alert.alert("Success", "Book removed from library");
+          } else {
+            throw new Error(response.error);
           }
-        },
+        } catch (error) {
+          console.error("Error removing book:", error);
+          
+          // Offline fallback - remove locally
+          setItems((prevItems) =>
+            prevItems.filter((item) => item.id !== libraryItemId)
+          );
+          await AsyncStorageHelper.removeFromLibrary(libraryItemId);
+          Alert.alert("Removed locally", "Will sync when online");
+        }
       },
-    ]);
-  };
+    },
+  ]);
+};
 
   const openStatusModal = (book) => {
     setSelectedBook(book);
@@ -242,7 +380,11 @@ export default function LibraryScreen({ navigation }) {
       <TouchableOpacity
         style={styles.bookCard}
         onPress={() =>
-          navigation.navigate("BookDetails", { bookId: item.bookId })
+          navigation.navigate("Reading", { 
+            bookId: item.bookId,
+            libraryId: item.id,      
+             onGoBack: fetchLibrary,
+           })
         }
       >
         <View style={styles.coverSection}>
@@ -303,6 +445,7 @@ export default function LibraryScreen({ navigation }) {
                   navigation.navigate("Reading", {
                     bookId: item.bookId,
                     libraryId: item.id,
+                    onGoBack: fetchLibrary,
                   })
                 }
               >
@@ -367,7 +510,7 @@ export default function LibraryScreen({ navigation }) {
                           0,
                           (selectedBook.progress || 0) - 10
                         );
-                        updateReadingProgress(selectedBook.id, newProgress);
+                        updateReadingProgress(selectedBook.id, newProgress, 1);
                       }}
                     >
                       <Text style={styles.progressButtonText}>-10%</Text>
@@ -384,7 +527,7 @@ export default function LibraryScreen({ navigation }) {
                           100,
                           (selectedBook.progress || 0) + 10
                         );
-                        updateReadingProgress(selectedBook.id, newProgress);
+                        updateReadingProgress(selectedBook.id, newProgress, 1);
                       }}
                     >
                       <Text style={styles.progressButtonText}>+10%</Text>

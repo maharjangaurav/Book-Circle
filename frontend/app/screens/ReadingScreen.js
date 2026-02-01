@@ -1,5 +1,5 @@
 "use client";
-
+import React from "react";  
 import { useState, useEffect } from "react";
 import {
   View,
@@ -14,21 +14,23 @@ import {
   StatusBar,
   Modal,
 } from "react-native";
+import { Pressable } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Slider from "@react-native-community/slider";
 import { MaterialIcons } from "@expo/vector-icons";
 
-const { width, height } = Dimensions.get("window");
+// Import the API functions
+import { getChaptersByBookIdAPI, getBookByIdAPI,    getReadingProgressAPI, updateReadingProgressAPI,  } from "../utils/api";
+
 
 const HtmlContent = ({ html, fontSize, color }) => {
-  // Strip HTML tags and convert to readable text
   const plainText = html
-    .replace(/<[^>]*>/g, " ") // Remove all HTML tags
+    .replace(/<[^>]*>/g, " ")
     .replace(/&nbsp;/g, " ")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&amp;/g, "&")
-    .replace(/\s+/g, " ") // Normalize spaces
+    .replace(/\s+/g, " ")
     .trim();
 
   return (
@@ -42,88 +44,191 @@ const HtmlContent = ({ html, fontSize, color }) => {
 
 export default function ReadingScreen({ route, navigation }) {
   const { bookId, libraryId, featchedbook } = route.params;
-  const [book, setBook] = useState(null);
+  const [book, setBook] = useState(featchedbook || null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
   const [fontSize, setFontSize] = useState(16);
   const [readingProgress, setReadingProgress] = useState(0);
   const [showControls, setShowControls] = useState(true);
-  const [bookContent, setBookContent] = useState([]);
-
+  const [chapters, setChapters] = useState([]);
+  
   const [theme, setTheme] = useState("light");
   const [scrollMode, setScrollMode] = useState("paginated");
   const [showSettings, setShowSettings] = useState(false);
   const [bookmarks, setBookmarks] = useState([]);
   const [showBookmarks, setShowBookmarks] = useState(false);
-  const [scrollViewRef, setScrollViewRef] = useState(null);
+  const [lastSyncedPage, setLastSyncedPage] = useState(1);
+
 
   useEffect(() => {
     fetchBookDetails();
     fetchReadingProgress();
     loadBookmarks();
     loadReadingPreferences();
+
   }, [bookId]);
 
   const fetchBookDetails = async () => {
-    setLoading(true);
-    setError(null);
+  setLoading(true);
+  setError(null);
 
-    try {
-      setTimeout(() => {
-        const mockBook = {
-          id: bookId,
-          title: featchedbook?.title || "Book Title",
-          author: featchedbook?.author || "Author Name",
-          description:
-            featchedbook?.description ||
-            "This is a detailed description of the book.",
-          published_date: featchedbook?.published_date || "2023-01-15",
-          content: generateMockContent(),
-          isPremium: featchedbook?.isPremium || false,
-          genre: featchedbook?.genre || "Fiction",
-          rating: featchedbook?.rating || 5,
-        };
-        setBook(mockBook);
-        setBookContent(mockBook.content);
+  try {
+    console.log("📚 Fetching chapters for book:", bookId);
+    
+    // First, let's test the API endpoint directly
+    console.log("🔍 Testing API endpoint...");
+    
+    const response = await getChaptersByBookIdAPI(bookId);
+    
+    console.log("📦 Response data:", response);
+    
+    if (response.success && response.data) {
+      console.log("✅ API call successful");
+      
+      // Check what we actually received
+      const chaptersData = response.data.data || response.data || [];
+      console.log(`📊 Chapters data type: ${typeof chaptersData}`);
+      console.log(`📊 Is array? ${Array.isArray(chaptersData)}`);
+      console.log(`📊 Chapters count: ${chaptersData.length}`);
+      
+      if (chaptersData.length > 0) {
+        console.log("📖 First chapter:", chaptersData[0]);
+      }
+      
+      if (chaptersData.length === 0) {
+        setError("No chapters available for this book.");
         setLoading(false);
-      }, 500);
-    } catch (error) {
-      setError("Failed to load book details. Please try again.");
+        return;
+      }
+      
+      const processedChapters = chaptersData.map((chapter, index) => ({
+        id: chapter._id || `chapter-${index}`,
+        chapterNumber: chapter.order_number || chapter.chapterNumber || index + 1,
+        title: chapter.title || `Chapter ${index + 1}`,
+        content: chapter.content || "No content available",
+        page: index + 1,
+      }));
+      
+      setChapters(processedChapters);
+      setTotalPages(processedChapters.length);
+      
+      // Fetch book details if not already available
+      if (!book && bookId) {
+        try {
+          console.log("📚 Fetching book details for ID:", bookId);
+          const bookResponse = await getBookByIdAPI(bookId);
+          console.log("📚 Book API Response:", bookResponse);
+          
+          if (bookResponse.success && bookResponse.data) {
+            setBook(bookResponse.data);
+          } else {
+            console.warn("⚠️ Book API returned error:", bookResponse.error);
+          }
+        } catch (bookError) {
+          console.warn("⚠️ Could not fetch book details:", bookError);
+          if (featchedbook) {
+            setBook(featchedbook);
+          }
+        }
+      } else if (featchedbook && !book) {
+        setBook(featchedbook);
+      }
+      
+      setLoading(false);
+    } else {
+      console.error("❌ API returned error:", response.error);
+      throw new Error(response.error || "Failed to load chapters");
+    }
+  } catch (error) {
+    console.error("❌ Error fetching book details:", error);
+    // Try a fallback - check if we can fetch from a different endpoint
+    if (featchedbook && featchedbook.content) {
+      console.log("🔄 Using fallback data from featchedbook");
+      const fallbackChapters = [{
+        id: "fallback-1",
+        chapterNumber: 1,
+        title: featchedbook.title || "Book Content",
+        content: featchedbook.content,
+        page: 1,
+      }];
+      setChapters(fallbackChapters);
+      setTotalPages(1);
+      setBook(featchedbook);
+      setLoading(false);
+    } else {
+      setError(error.message || "Failed to load book. Please try again.");
       setLoading(false);
     }
-  };
+  }
+};
 
   const fetchReadingProgress = async () => {
     try {
       if (libraryId) {
-        const mockProgress = 30;
-        setReadingProgress(mockProgress);
-        setCurrentPage(Math.ceil((mockProgress / 100) * totalPages));
+        const savedProgress = await AsyncStorage.getItem(`reading_progress_${bookId}`);
+        if (savedProgress) {
+          const parsed = JSON.parse(savedProgress);
+          setReadingProgress(parsed.progress || 0);
+         if (parsed.currentPage) {
+           setCurrentPage(parsed.currentPage);
+         }  
+        }
       }
     } catch (error) {
       console.error("Error fetching reading progress:", error);
     }
   };
 
-  const generateMockContent = () => {
-    const htmlContent = featchedbook?.content || "No content available";
+  // Replace your current updateReadingProgress function:
+const updateReadingProgress = async (page) => {
+  if (!chapters.length || !libraryId) return;
 
-    const content = [];
-    for (let i = 1; i <= 10; i++) {
-      content.push({
-        page: i,
-        html: htmlContent,
-      });
-    }
-    return content;
+  const totalPages = chapters.length;
+  const safePage = Math.max(1, Math.min(page, totalPages));
+
+  // ✅ FIXED: Simple percentage calculation
+  const progress = Math.round((safePage / totalPages) * 100);
+
+  // Update local state
+  setCurrentPage(safePage);
+  setReadingProgress(progress);
+
+  const progressData = {
+    currentPage: safePage,
+    progress: progress,
+    status: progress === 100 ? "finished" : "reading",
+    lastReadAt: new Date().toISOString()
   };
+
+  // ✅ Update backend
+  try {
+    console.log(`📊 Syncing progress: Page ${safePage}/${totalPages} (${progress}%)`);
+    await updateReadingProgressAPI(libraryId, progressData);
+    console.log("✅ Progress synced to backend");
+  } catch (error) {
+    console.error("❌ Failed to sync progress:", error);
+    // Save locally as fallback
+    await AsyncStorage.setItem(
+      `reading_progress_${bookId}`,
+      JSON.stringify(progressData)
+    );
+  }
+
+  // ✅ Also update library status if finished
+  if (progress === 100) {
+    try {
+      await updateLibraryStatusAPI(libraryId, "finished");
+    } catch (e) {
+      console.warn("Could not update status to finished:", e);
+    }
+  }
+};
 
   const loadBookmarks = async () => {
     try {
       const savedBookmarks = await AsyncStorage.getItem(`bookmarks_${bookId}`);
-
       if (savedBookmarks) {
         const parsed = JSON.parse(savedBookmarks);
         setBookmarks(parsed);
@@ -135,18 +240,12 @@ export default function ReadingScreen({ route, navigation }) {
 
   const loadReadingPreferences = async () => {
     try {
-      const savedPreferences = await AsyncStorage.getItem(
-        "reading_preferences"
-      );
-
+      const savedPreferences = await AsyncStorage.getItem("reading_preferences");
       if (savedPreferences) {
         const parsed = JSON.parse(savedPreferences);
-
-        const { theme, fontSize, scrollMode } = parsed;
-
-        setTheme(theme || "light");
-        setFontSize(fontSize || 16);
-        setScrollMode(scrollMode || "paginated");
+        setTheme(parsed.theme || "light");
+        setFontSize(parsed.fontSize || 16);
+        setScrollMode(parsed.scrollMode || "paginated");
       }
     } catch (error) {
       console.error("Error loading reading preferences:", error);
@@ -156,10 +255,7 @@ export default function ReadingScreen({ route, navigation }) {
   const saveReadingPreferences = async () => {
     try {
       const preferences = { theme, fontSize, scrollMode };
-      await AsyncStorage.setItem(
-        "reading_preferences",
-        JSON.stringify(preferences)
-      );
+      await AsyncStorage.setItem("reading_preferences", JSON.stringify(preferences));
     } catch (error) {
       console.error("Error saving reading preferences:", error);
     }
@@ -192,42 +288,20 @@ export default function ReadingScreen({ route, navigation }) {
   };
 
   const goToBookmark = (page) => {
-    setCurrentPage(page);
+   updateReadingProgress(page);
     setShowBookmarks(false);
-    updateReadingProgress();
-  };
-
-  const updateReadingProgress = async () => {
-    const newProgress = Math.floor((currentPage / totalPages) * 100);
-    setReadingProgress(newProgress);
-
-    try {
-      if (libraryId) {
-        await AsyncStorage.setItem(
-          `reading_progress_${bookId}`,
-          JSON.stringify({
-            progress: newProgress,
-            currentPage,
-            lastReadAt: new Date().toISOString(),
-          })
-        );
-      }
-    } catch (error) {
-      console.error("Error updating reading progress:", error);
-    }
   };
 
   const goToNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-      updateReadingProgress();
+    if (currentPage < chapters.length) {
+      updateReadingProgress(currentPage + 1);
+      
     }
   };
 
   const goToPreviousPage = () => {
     if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-      updateReadingProgress();
+      updateReadingProgress(currentPage - 1);
     }
   };
 
@@ -236,150 +310,211 @@ export default function ReadingScreen({ route, navigation }) {
   };
 
   const renderContent = () => {
-    if (!book || !bookContent || bookContent.length === 0) return null;
+    if (chapters.length === 0) return null;
 
-    const pageContent = bookContent.find((p) => p.page === currentPage);
-    if (!pageContent) return null;
+    const currentChapter = chapters.find((chapter) => chapter.page === currentPage);
+    if (!currentChapter) return null;
 
     return (
-      <TouchableOpacity
-        activeOpacity={1}
-        style={styles.contentContainer}
+      <ScrollView
+      style={styles.scrollableContent}
+      scrollEnabled={true}
+      showsVerticalScrollIndicator={true}
+      contentContainerStyle={{ padding: 16 }}
+    >
+      <Pressable
         onPress={toggleControls}
+        style={{ flex: 1 }}
       >
-        <ScrollView
-          scrollEnabled={true}
-          showsVerticalScrollIndicator={true}
-          style={styles.scrollableContent}
-        >
-          <HtmlContent
-            html={pageContent.html}
-            fontSize={fontSize}
-            color={
-              theme === "dark"
-                ? "#e0e0e0"
-                : theme === "sepia"
-                ? "#5b4636"
-                : "#212121"
-            }
-          />
-        </ScrollView>
-      </TouchableOpacity>
+        <Text style={styles.chapterTitle}>{currentChapter.title}</Text>
+
+      <HtmlContent
+        html={currentChapter.content}
+        fontSize={fontSize}
+        color={
+          theme === "dark"
+            ? "#e0e0e0"
+            : theme === "sepia"
+            ? "#5b4636"
+            : "#212121"
+        }
+      />
+        </Pressable>
+    </ScrollView>
     );
   };
 
+  const renderContinuousContent = () => {
+  return (
+     <ScrollView
+      style={styles.continuousScrollContainer}
+      scrollEventThrottle={16}
+      onScroll={(event) => {
+        const scrollPosition = event.nativeEvent.contentOffset.y;
+        const scrollViewHeight = event.nativeEvent.layoutMeasurement.height;
+        const contentHeight = event.nativeEvent.contentSize.height;
+
+        if (contentHeight > 0) {
+          const scrollPercentage =
+            scrollPosition / (contentHeight - scrollViewHeight);
+          const newPage = Math.max(
+            1,
+            Math.min(chapters.length, Math.ceil(scrollPercentage * chapters.length))
+          );
+
+          if (newPage !== lastSyncedPage) {
+            setLastSyncedPage(newPage);
+            updateReadingProgress(newPage);
+
+             const totalPages = chapters.length;
+              const progress =
+                totalPages > 1
+                  ? Math.round(((newPage - 1) / (totalPages - 1)) * 100)
+                  : 100;
+
+              setReadingProgress(progress);
+          }
+        }
+      }}
+     >
+        {chapters.map((chapter) => (
+        <Pressable
+          key={chapter.id}
+          onPress={toggleControls}
+          style={styles.continuousPageContainer}
+        >
+          <Text style={styles.chapterTitle}>{chapter.title}</Text>
+            <HtmlContent
+              html={chapter.content}
+              fontSize={fontSize}
+              color={
+                theme === "dark"
+                  ? "#e0e0e0"
+                  : theme === "sepia"
+                  ? "#5b4636"
+                  : "#212121"
+              }
+            />
+          </Pressable>
+        ))}
+        </ScrollView>
+    );
+  };
+
+
   const renderControls = () => {
-    if (!showControls) return null;
+  if (!showControls || chapters.length === 0) return null;
 
-    return (
-      <View style={styles.controlsContainer}>
-        <View style={styles.topControls}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}
-          >
-            <MaterialIcons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.pageIndicator}>
-            {currentPage} / {totalPages}
-          </Text>
-          <View style={styles.topRightControls}>
-            <TouchableOpacity
-              onPress={toggleBookmark}
-              style={styles.iconButton}
-            >
-              <MaterialIcons
-                name={
-                  bookmarks.includes(currentPage)
-                    ? "bookmark"
-                    : "bookmark-border"
-                }
-                size={24}
-                color="#fff"
-              />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setShowBookmarks(true)}
-              style={styles.iconButton}
-            >
-              <MaterialIcons name="bookmarks" size={24} color="#fff" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setShowSettings(true)}
-              style={styles.settingsButton}
-            >
-              <MaterialIcons name="settings" size={24} color="#fff" />
-            </TouchableOpacity>
-          </View>
-        </View>
+  return (
+    <View
+      style={styles.controlsContainer}
+      pointerEvents="box-none"
+    >
 
-        <View style={styles.bottomControls}>
-          <TouchableOpacity
-            onPress={goToPreviousPage}
-            style={[
-              styles.navButton,
-              currentPage === 1 && styles.disabledButton,
-            ]}
-            disabled={currentPage === 1}
-          >
+      {/* TOP CONTROLS */}
+      <View style={styles.topControls} pointerEvents="auto">
+       <TouchableOpacity
+          onPress={() => {
+            if (route.params?.onGoBack) {
+              route.params.onGoBack(); // 🔥 refresh library
+            }
+            navigation.navigate("Library",{refresh: true});
+          }}
+        >
+          <MaterialIcons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
+
+        <Text style={styles.pageIndicator}>
+          {currentPage}/{chapters.length}
+        </Text>
+
+        <View style={styles.topRightControls}>
+          <TouchableOpacity onPress={toggleBookmark} style={styles.iconButton}>
             <MaterialIcons
-              name="navigate-before"
-              size={30}
-              color={currentPage === 1 ? "#aaa" : "#fff"}
+              name={bookmarks.includes(currentPage)
+                ? "bookmark"
+                : "bookmark-border"}
+              size={24}
+              color="#fff"
             />
           </TouchableOpacity>
 
-          <View style={styles.progressContainer}>
-            <Slider
-              style={styles.progressSlider}
-              minimumValue={1}
-              maximumValue={totalPages}
-              step={1}
-              value={currentPage}
-              onValueChange={setCurrentPage}
-              onSlidingComplete={() => updateReadingProgress()}
-              minimumTrackTintColor="#6200ee"
-              maximumTrackTintColor="#e0e0e0"
-              thumbTintColor="#6200ee"
-            />
-            <Text style={styles.progressText}>
-              {readingProgress}% completed
-            </Text>
-          </View>
+          <TouchableOpacity
+            onPress={() => setShowBookmarks(true)}
+            style={styles.iconButton}
+          >
+            <MaterialIcons name="bookmarks" size={24} color="#fff" />
+          </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={goToNextPage}
-            style={[
-              styles.navButton,
-              currentPage === totalPages && styles.disabledButton,
-            ]}
-            disabled={currentPage === totalPages}
+            onPress={() => setShowSettings(true)}
+            style={styles.settingsButton}
           >
-            <MaterialIcons
-              name="navigate-next"
-              size={30}
-              color={currentPage === totalPages ? "#aaa" : "#fff"}
-            />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.fontSizeControls}>
-          <TouchableOpacity
-            onPress={() => setFontSize(Math.max(12, fontSize - 2))}
-          >
-            <MaterialIcons name="remove" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.fontSizeText}>Text Size</Text>
-          <TouchableOpacity
-            onPress={() => setFontSize(Math.min(24, fontSize + 2))}
-          >
-            <MaterialIcons name="add" size={24} color="#fff" />
+            <MaterialIcons name="settings" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
-    );
-  };
 
+      {/* BOTTOM CONTROLS */}
+      <View style={styles.bottomControls} pointerEvents="auto">
+        <TouchableOpacity
+          onPress={goToPreviousPage}
+          disabled={currentPage === 1}
+        >
+          <MaterialIcons
+            name="navigate-before"
+            size={30}
+            color={currentPage === 1 ? "#aaa" : "#fff"}
+          />
+        </TouchableOpacity>
+
+       <View style={styles.progressContainer}>
+        <View style={styles.progressBarBackground}>
+          <View
+            style={[
+              styles.progressBarFill,
+              { width: `${readingProgress}%` },
+            ]}
+          />
+        </View>
+
+        <Text style={styles.progressText}>
+          {currentPage} / {chapters.length} • {readingProgress}%
+        </Text>
+       </View>
+
+        <TouchableOpacity
+          onPress={goToNextPage}
+          disabled={currentPage === chapters.length}
+        >
+          <MaterialIcons
+            name="navigate-next"
+            size={30}
+            color={currentPage === chapters.length ? "#aaa" : "#fff"}
+          />
+        </TouchableOpacity>
+      </View>
+
+      {/* FONT SIZE */}
+      <View style={styles.fontSizeControls} pointerEvents="auto">
+        <TouchableOpacity
+          onPress={() => setFontSize(Math.max(12, fontSize - 2))}
+        >
+          <MaterialIcons name="remove" size={24} color="#fff" />
+        </TouchableOpacity>
+
+        <Text style={styles.fontSizeText}>Text Size</Text>
+
+        <TouchableOpacity
+          onPress={() => setFontSize(Math.min(24, fontSize + 2))}
+        >
+          <MaterialIcons name="add" size={24} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
+    </View>
+  );
+};
   // Render settings modal
   const renderSettingsModal = () => {
     return (
@@ -387,7 +522,10 @@ export default function ReadingScreen({ route, navigation }) {
         visible={showSettings}
         transparent={true}
         animationType="slide"
-        onRequestClose={() => setShowSettings(false)}
+        onRequestClose={() => {
+          setShowSettings(false);
+          saveReadingPreferences();
+        }}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
@@ -614,6 +752,18 @@ export default function ReadingScreen({ route, navigation }) {
     );
   }
 
+  if (chapters.length === 0) {
+    return (
+      <View style={styles.centered}>
+        <MaterialIcons name="book" size={48} color="#757575" />
+        <Text style={styles.errorText}>No chapters available</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchBookDetails}>
+          <Text style={styles.retryButtonText}>Refresh</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView
       style={[
@@ -625,49 +775,9 @@ export default function ReadingScreen({ route, navigation }) {
       <StatusBar
         barStyle={theme === "dark" ? "light-content" : "dark-content"}
       />
-      {scrollMode === "paginated" ? (
-        renderContent()
-      ) : (
-        <ScrollView
-          ref={(ref) => setScrollViewRef(ref)}
-          style={styles.continuousScrollContainer}
-          onScroll={(event) => {
-            const scrollPosition = event.nativeEvent.contentOffset.y;
-            const scrollViewHeight = event.nativeEvent.layoutMeasurement.height;
-            const contentHeight = event.nativeEvent.contentSize.height;
 
-            if (contentHeight > 0) {
-              const scrollPercentage =
-                scrollPosition / (contentHeight - scrollViewHeight);
-              const newPage = Math.max(
-                1,
-                Math.min(totalPages, Math.ceil(scrollPercentage * totalPages))
-              );
-
-              if (newPage !== currentPage) {
-                setCurrentPage(newPage);
-                updateReadingProgress();
-              }
-            }
-          }}
-        >
-          {bookContent.map((page) => (
-            <View key={page.page} style={styles.continuousPageContainer}>
-              <HtmlContent
-                html={page.html}
-                fontSize={fontSize}
-                color={
-                  theme === "dark"
-                    ? "#e0e0e0"
-                    : theme === "sepia"
-                    ? "#5b4636"
-                    : "#212121"
-                }
-              />
-            </View>
-          ))}
-        </ScrollView>
-      )}
+      {scrollMode === "paginated" ? renderContent() : renderContinuousContent()}
+      
       {renderControls()}
       {renderSettingsModal()}
       {renderBookmarksModal()}
@@ -727,7 +837,14 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   continuousPageContainer: {
+    marginBottom: 40,
+  },
+  chapterTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
     marginBottom: 20,
+    textAlign: "center",
+    color: "#6200ee",
   },
   controlsContainer: {
     position: "absolute",
@@ -781,16 +898,28 @@ const styles = StyleSheet.create({
   },
   progressContainer: {
     flex: 1,
-    marginHorizontal: 16,
     alignItems: "center",
+    marginHorizontal: 16,
+  },
+    progressBarBackground: {
+    width: "100%",
+    height: 4,
+    backgroundColor: "rgba(255,255,255,0.3)",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+  height: 4,
+  backgroundColor: "#6200ee",
   },
   progressSlider: {
     width: "100%",
   },
   progressText: {
+     marginTop: 6,
     color: "#fff",
     fontSize: 12,
-    marginTop: 4,
+    opacity: 0.9,
   },
   fontSizeControls: {
     position: "absolute",
@@ -880,6 +1009,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f8f1e3",
   },
+  continuousScrollContainerWrapper: {
+  flex: 1,
+  padding: 20,
+},
   fontSizeSlider: {
     flexDirection: "row",
     alignItems: "center",
@@ -939,4 +1072,4 @@ const styles = StyleSheet.create({
     color: "#757575",
     textAlign: "center",
   },
-});
+}); 

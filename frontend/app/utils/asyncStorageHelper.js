@@ -1,141 +1,95 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const LIBRARY_KEY = "@bookcircle_library";
-const READING_PROGRESS_KEY = "@bookcircle_reading_progress";
+const LIBRARY_KEY = "USER_LIBRARY";
 
 export const AsyncStorageHelper = {
-  // Save book to library locally
+  // Save a book to library
   saveToLibrary: async (book, status = "saved") => {
     try {
-      const library = await AsyncStorage.getItem(LIBRARY_KEY);
-      const libraryArray = library ? JSON.parse(library) : [];
+      const libraryRaw = await AsyncStorage.getItem(LIBRARY_KEY);
+      let library = [];
 
-      const existingIndex = libraryArray.findIndex(
-        (item) => item.id === book.id
-      );
-
-      if (existingIndex >= 0) {
-        libraryArray[existingIndex] = {
-          ...book,
-          status,
-          addedAt: new Date().toISOString(),
-        };
-      } else {
-        libraryArray.push({
-          ...book,
-          status,
-          addedAt: new Date().toISOString(),
-        });
+      try {
+        library = libraryRaw ? JSON.parse(libraryRaw) : [];
+      } catch {
+        console.warn("Invalid JSON in library, resetting to empty array");
+        library = [];
       }
 
-      await AsyncStorage.setItem(LIBRARY_KEY, JSON.stringify(libraryArray));
-      return true;
+      const existingIndex = library.findIndex((item) => item.id === book.id);
+
+      if (existingIndex !== -1) {
+        library[existingIndex] = { ...library[existingIndex], ...book, status };
+      } else {
+        library.push({ ...book, status });
+      }
+
+      await AsyncStorage.setItem(LIBRARY_KEY, JSON.stringify(library));
     } catch (error) {
       console.error("Error saving to library:", error);
-      return false;
     }
   },
 
-  // Get library
+  // Get the full library
   getLibrary: async () => {
     try {
-      const library = await AsyncStorage.getItem(LIBRARY_KEY);
-      return library ? JSON.parse(library) : [];
+      const libraryRaw = await AsyncStorage.getItem(LIBRARY_KEY);
+      try {
+        return libraryRaw ? JSON.parse(libraryRaw) : [];
+      } catch {
+        console.warn("Invalid JSON in library, returning empty array");
+        return [];
+      }
     } catch (error) {
       console.error("Error getting library:", error);
       return [];
     }
   },
 
-  // Get library status for a specific book
-  getBookStatus: async (bookId) => {
-    try {
-      const library = await AsyncStorage.getItem(LIBRARY_KEY);
-      if (!library) return null;
-
-      const libraryArray = JSON.parse(library);
-      const book = libraryArray.find((item) => item.id === bookId);
-      return book ? book.status : null;
-    } catch (error) {
-      console.error("Error getting book status:", error);
-      return null;
-    }
-  },
-
   // Update reading status
-  updateReadingStatus: async (bookId, status) => {
+  updateReadingStatus: async (bookId, newStatus) => {
     try {
-      const library = await AsyncStorage.getItem(LIBRARY_KEY);
-      const libraryArray = library ? JSON.parse(library) : [];
-
-      const index = libraryArray.findIndex((item) => item.id === bookId);
-      if (index >= 0) {
-        libraryArray[index].status = status;
-        libraryArray[index].lastReadAt = new Date().toISOString();
-
-        if (status === "finished") {
-          libraryArray[index].progress = 100;
-        }
-
-        await AsyncStorage.setItem(LIBRARY_KEY, JSON.stringify(libraryArray));
-      }
-
-      return true;
+      const library = await AsyncStorageHelper.getLibrary();
+      const updatedLibrary = library.map((item) =>
+        item.id === bookId ? { ...item, status: newStatus } : item
+      );
+      await AsyncStorage.setItem(LIBRARY_KEY, JSON.stringify(updatedLibrary));
     } catch (error) {
       console.error("Error updating reading status:", error);
-      return false;
     }
   },
 
-  // Update reading progress
-  updateReadingProgress: async (bookId, progress) => {
-    try {
-      const library = await AsyncStorage.getItem(LIBRARY_KEY);
-      const libraryArray = library ? JSON.parse(library) : [];
-
-      const index = libraryArray.findIndex((item) => item.id === bookId);
-      if (index >= 0) {
-        libraryArray[index].progress = progress;
-        libraryArray[index].lastReadAt = new Date().toISOString();
-
-        if (progress === 100) {
-          libraryArray[index].status = "finished";
-        }
-
-        await AsyncStorage.setItem(LIBRARY_KEY, JSON.stringify(libraryArray));
-      }
-
-      return true;
-    } catch (error) {
-      console.error("Error updating progress:", error);
-      return false;
-    }
-  },
-
-  // Remove from library
+  // Remove a book from library
   removeFromLibrary: async (bookId) => {
     try {
-      const library = await AsyncStorage.getItem(LIBRARY_KEY);
-      const libraryArray = library ? JSON.parse(library) : [];
-
-      const filteredArray = libraryArray.filter((item) => item.id !== bookId);
-      await AsyncStorage.setItem(LIBRARY_KEY, JSON.stringify(filteredArray));
-
-      return true;
+      const library = await AsyncStorageHelper.getLibrary();
+      const updatedLibrary = library.filter((item) => item.id !== bookId);
+      await AsyncStorage.setItem(LIBRARY_KEY, JSON.stringify(updatedLibrary));
     } catch (error) {
       console.error("Error removing from library:", error);
-      return false;
     }
   },
 
-  // Clear library
+  // Update reading progress for a book
+ updateReadingProgress: async (libraryId, progress, currentPage) => {
+  const library = await AsyncStorageHelper.getLibrary();
+  const updated = library.map(item =>
+    item.id === libraryId
+      ? { ...item, progress, currentPage, lastReadAt: new Date().toISOString() }
+      : item
+  );
+  await AsyncStorage.setItem(LIBRARY_KEY, JSON.stringify(updated));
+},
+
+
+
+
+  // Optional: Clear all library (for debugging or reset)
   clearLibrary: async () => {
     try {
       await AsyncStorage.removeItem(LIBRARY_KEY);
-      return true;
     } catch (error) {
       console.error("Error clearing library:", error);
-      return false;
     }
   },
 };

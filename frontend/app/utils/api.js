@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage"
 
-const API_BASE_URL = "http://your-backend-url/api"
+const API_BASE_URL = "http://192.168.1.75:3000"
 
 export const apiCall = async (endpoint, options = {}) => {
   try {
@@ -15,7 +15,7 @@ export const apiCall = async (endpoint, options = {}) => {
       headers.Authorization = `Bearer ${token}`
     }
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers,
     })
@@ -59,5 +59,89 @@ export const refreshTokenAPI = async () => {
 export const getUserProfileAPI = async () => {
   return apiCall("/user/profile", {
     method: "GET",
+  })
+}
+
+// ============= BOOK APIs =============
+export const getBookByIdAPI = async (bookId) => {
+  return apiCall(`/book/${bookId}`, {
+    method: "GET",
+  })
+}
+
+export const getBooksAPI = async () => {
+  return apiCall("/book/read", {
+    method: "GET",
+  })
+}
+
+// ============= CHAPTER APIs =============
+// Get all chapters for a specific book
+export const getChaptersByBookIdAPI = async (bookId) => {
+  return apiCall(`/chapter/readbybook/${bookId}`, {
+    method: "GET",
+  })
+}
+
+// Get single chapter by ID
+export const getChapterByIdAPI = async (chapterId) => {
+  return apiCall(`/chapter/readbyid/${chapterId}`, {
+    method: "GET",
+  })
+}
+
+// Create new chapter
+export const createChapterAPI = async (chapterData) => {
+  return apiCall("/chapter/create", {
+    method: "POST",
+    body: JSON.stringify(chapterData),
+  })
+}
+
+// Update chapter
+export const updateChapterAPI = async (chapterId, chapterData) => {
+  return apiCall(`/chapter/read/${chapterId}`, {
+    method: "PATCH",
+    body: JSON.stringify(chapterData),
+  })
+}
+
+// ============= LIBRARY APIs =============
+export const getReadingProgressAPI = async (libraryId) => {
+  return apiCall(`/api/library/${libraryId}/progress`, {
+    method: "GET",
+  })
+}
+
+export const updateReadingProgressAPI = async (libraryId, progressData) => {
+  return apiCall(`/api/library/${libraryId}/progress`, {
+    method: "PUT",
+    body: JSON.stringify(progressData),
+  })
+}
+
+// ✅ ADD THESE MISSING LIBRARY APIs:
+export const getLibraryAPI = async () => {
+  return apiCall('/api/library', {
+    method: "GET",
+  })
+}
+
+export const updateLibraryStatusAPI = async (libraryId, status) => {
+  return apiCall(`/api/library/${libraryId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  })
+}
+
+export const removeFromLibraryAPI = async (libraryId) => {
+  return apiCall(`/api/library/${libraryId}`, {
+    method: "DELETE",
+  })
+}
+
+export const addToLibraryAPI = async (bookId) => {
+  return apiCall(`/api/library/${bookId}`, {
+    method: "POST",
   })
 }

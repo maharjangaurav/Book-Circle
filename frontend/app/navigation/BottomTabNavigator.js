@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { createStackNavigator } from "@react-navigation/stack";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
 
@@ -23,6 +24,8 @@ import ReadingScreen from "../screens/ReadingScreen";
 import { BooksAPI } from "../api/books";
 
 const Tab = createBottomTabNavigator();
+
+const Stack = createStackNavigator();
 
 // Theme colors
 const COLORS = {
@@ -57,6 +60,48 @@ const HeaderWithAvatar = ({ navigation }) => {
     </View>
   );
 };
+
+function HomeStackNavigator({ finishedBooks, fetchAllBooks }) {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen 
+        name="HomeMain"
+        options={{
+          headerShown: true,
+          header: ({ navigation: headerNav }) => (
+            <HeaderWithAvatar navigation={headerNav} />
+          ),
+        }}
+      >
+        {(props) => (
+          <HomeScreen 
+            {...props}
+            finishedBooks={finishedBooks} 
+            fetchAllBooks={fetchAllBooks}
+          />
+        )}
+      </Stack.Screen>
+      <Stack.Screen 
+        name="BookDetails" 
+        component={BookDetailScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="Reading" 
+        component={ReadingScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+    </Stack.Navigator>
+  );
+}
 
 export default function BottomTabNavigator({ navigation }) {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -208,26 +253,12 @@ export default function BottomTabNavigator({ navigation }) {
           fontWeight: "500",
           paddingBottom: 5,
         },
-        headerStyle: {
-          backgroundColor: COLORS.card,
-          elevation: 0,
-          shadowOpacity: 0,
-          borderBottomWidth: 1,
-          borderBottomColor: COLORS.border,
-        },
-        headerTitleStyle: {
-          fontWeight: "bold",
-          color: COLORS.text,
-        },
-        header: ({ navigation: headerNav }) =>
-          route.name === "Home" ? (
-            <HeaderWithAvatar navigation={headerNav} />
-          ) : undefined,
+        headerShown: false,
       })}
     >
       <Tab.Screen name="Home">
         {() => (
-          <HomeScreen
+          <HomeStackNavigator
             finishedBooks={finishedBooks}
             fetchAllBooks={fetchAllBooks}
           />
@@ -271,28 +302,21 @@ export default function BottomTabNavigator({ navigation }) {
           />
         )}
       </Tab.Screen>
-
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{
-          title: "Profile",
-        }}
-      />
-      <Tab.Screen
-        name="BookDetails"
-        component={BookDetailScreen}
-        options={{
-          title: "Book Details",
-          tabBarButton: () => null,
-        }}
-      />
+      
       <Tab.Screen
         name="CreateBook"
         component={CreateBookScreen}
         options={{
           title: "Create Book",
           tabBarButton: () => null,
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          title: "Profile",
+          tabBarButton: () => null,  // Hide from tab bar
         }}
       />
       <Tab.Screen
@@ -336,14 +360,7 @@ export default function BottomTabNavigator({ navigation }) {
         }}
       />
 
-      <Tab.Screen
-        name="Reading"
-        component={ReadingScreen}
-        options={{
-          title: "Reading",
-          tabBarButton: () => null,
-        }}
-      />
+      
     </Tab.Navigator>
   );
 }

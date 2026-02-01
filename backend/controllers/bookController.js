@@ -103,7 +103,6 @@ exports.createBook = async (req, res) => {
   }
 };
 
-// Get books based on status
 exports.getBooks = async (req, res) => {
   try {
     const { status } = req.params;
@@ -112,20 +111,30 @@ exports.getBooks = async (req, res) => {
 
     let filter = {};
 
-    if (status === "draft" || status === "published" || status === "submitted") {
-      if (role === "admin" && status === "published") {
-        filter = { status };
-      } else if (role === "admin") {
-        // Admin can see all statuses except drafts from other writers
+    // Handle different statuses
+    if (status === "all") {
+      // For 'all', show books based on user role
+      if (role === "admin") {
+        filter = {};
+      } else {
+        filter = { author: userId };
+      }
+    } else if (status === "published" || status === "finished") {
+      // These are public statuses - anyone can see them
+      filter = { status };
+    } else if (status === "draft" || status === "submitted") {
+      // Private statuses - users only see their own
+      if (role === "admin") {
         filter = { status };
       } else {
-        // Writers only see their own books
         filter = { status, author: userId };
       }
-    } else if (status === "finished") {
-      filter = { status };
-    } else if (status === "all") {
-      filter = {};
+    } else {
+      // Invalid status
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid status parameter" 
+      });
     }
 
     const books = await NewBook.find(filter)
@@ -134,7 +143,12 @@ exports.getBooks = async (req, res) => {
 
     res.status(200).json({ success: true, data: books });
   } catch (e) {
-    res.status(500).json({ message: `Server Error: ${e}` });
+    console.error("Error fetching books:", e);
+    res.status(500).json({ 
+      success: false, 
+      message: "Server error", 
+      error: e.message 
+    });
   }
 };
 

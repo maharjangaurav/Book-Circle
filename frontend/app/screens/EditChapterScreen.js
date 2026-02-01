@@ -36,10 +36,16 @@ export default function EditChapterScreen() {
     try {
       setLoading(true);
       const response = await BooksAPI.getById(`chapter/readbyid/${chapterId}`);
-      setChapterData({
-        title: response.title,
-        order_number: response.order_number.toString(),
-      });
+     // ✅ Check response structure
+       if (!response || !response.success || !response.data) {
+      Alert.alert("Error", "Failed to load chapter data");
+      return;
+      const chapter = response.data;  // ✅ Extract chapter from data
+    setChapterData({
+      title: chapter.title,
+      order_number: chapter.order_number.toString(),
+    });
+    }
     } catch (error) {
       console.error("Error fetching chapter:", error);
       Alert.alert("Error", "Failed to load chapter data");
@@ -48,61 +54,87 @@ export default function EditChapterScreen() {
     }
   };
 
-  const handleUpdateChapter = async () => {
-    if (!chapterData.title.trim()) {
-      Alert.alert("Error", "Please enter a chapter title");
-      return;
-    }
+ const handleUpdateChapter = async () => {
+  if (!chapterData.title.trim()) {
+    Alert.alert("Error", "Please enter a chapter title");
+    return;
+  }
 
-    if (!chapterData.order_number.trim()) {
-      Alert.alert("Error", "Please enter a chapter number");
-      return;
-    }
+  if (!chapterData.order_number.trim()) {
+    Alert.alert("Error", "Please enter a chapter number");
+    return;
+  }
 
-    setUpdating(true);
-    try {
-      const response = await BooksAPI.update(`chapter/read/${chapterId}`, {
-        title: chapterData.title,
-        order_number: Number.parseInt(chapterData.order_number),
-        book: bookId,
-      });
-      if (response?.success) {
-        Alert.alert("Success", "Chapter updated successfully!");
-        navigation.goBack();
-      } else {
-        Alert.alert("Error", response?.message);
-      }
-    } catch (error) {
-      console.error("Error updating chapter:", error);
-    } finally {
-      setUpdating(false);
-      fetchChapters();
-    }
-  };
-
-  const handleDeleteChapter = () => {
-    Alert.alert(
-      "Delete Chapter",
-      "Are you sure you want to delete this chapter?",
-      [
-        { text: "Cancel", style: "cancel" },
+  setUpdating(true);
+  try {
+    const response = await BooksAPI.update(`chapter/read/${chapterId}`, {
+      title: chapterData.title,
+      order_number: Number.parseInt(chapterData.order_number),
+      book: bookId,
+    });
+    
+    if (response?.success) {
+      Alert.alert("Success", "Chapter updated successfully!", [
         {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await BooksAPI.delete(`chapter/read/${chapterId}`);
-              Alert.alert("Success", "Chapter deleted successfully!");
-              navigation.goBack();
-            } catch (error) {
-              console.error("Error deleting chapter:", error);
-              Alert.alert("Error", "Failed to delete chapter");
-            }
-          },
+          text: "OK",
+          onPress: () => {
+            // 🔥 Navigate to ManageChapters
+            navigation.navigate("ManageChapters", {
+              bookId: bookId,
+              refreshChapters: true,
+              showSuccess: true,
+              successMessage: "Chapter updated successfully!"
+            });
+          }
+        }
+      ]);
+    } else {
+      Alert.alert("Error", response?.message);
+    }
+  } catch (error) {
+    console.error("Error updating chapter:", error);
+    Alert.alert("Error", "Failed to update chapter");
+  } finally {
+    setUpdating(false);
+  }
+};
+
+const handleDeleteChapter = () => {
+  Alert.alert(
+    "Delete Chapter",
+    "Are you sure you want to delete this chapter?",
+    [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+           await BooksAPI.delete(`chapter/read/${bookId}/${chapterId}`);
+            
+            Alert.alert("Success", "Chapter deleted successfully!", [
+              {
+                text: "OK",
+                onPress: () => {
+                  // 🔥 Navigate to ManageChapters
+                  navigation.navigate("ManageChapters", {
+                    bookId: bookId,
+                    refreshChapters: true,
+                    showSuccess: true,
+                    successMessage: "Chapter deleted successfully!"
+                  });
+                }
+              }
+            ]);
+          } catch (error) {
+            console.error("Error deleting chapter:", error);
+            Alert.alert("Error", "Failed to delete chapter");
+          }
         },
-      ]
-    );
-  };
+      },
+    ]
+  );
+};
 
   if (loading) {
     return (
@@ -117,7 +149,13 @@ export default function EditChapterScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity  onPress={() => {
+      // 🔥 Go back to ManageChapters
+      navigation.navigate("ManageChapters", {
+        bookId: bookId,
+        refreshChapters: false
+      });
+    }} >
           <MaterialIcons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Chapter</Text>

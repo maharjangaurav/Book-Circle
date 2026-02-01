@@ -55,24 +55,37 @@ export default function ContentScreen() {
   };
 
   const handleSaveContent = async () => {
-    if (!content.trim()) {
-      Alert.alert("Error", "Please add some content to the chapter");
-      return;
-    }
+  if (!content.trim()) {
+    Alert.alert("Error", "Please add some content to the chapter");
+    return;
+  }
 
-    setSaving(true);
-    try {
-      console.log(content, "consoling content>>>");
-      await BooksAPI.update(`chapter/read/content/${chapterId}`, { content });
-      Alert.alert("Success", "Chapter content saved successfully!");
-      navigation.goBack();
-    } catch (error) {
-      console.error("Error saving chapter:", error);
-      Alert.alert("Error", "Failed to save chapter content");
-    } finally {
-      setSaving(false);
-    }
-  };
+  setSaving(true);
+  try {
+    console.log(content, "consoling content>>>");
+    await BooksAPI.update(`chapter/read/content/${chapterId}`, { content });
+    
+    Alert.alert("Success", "Chapter content saved successfully!", [
+      {
+        text: "OK",
+        onPress: () => {
+          // Navigate to ManageChapters with refresh flag
+          navigation.navigate("ManageChapters", {
+            bookId: bookId,
+            refreshChapters: true,
+            showSuccess: true,
+            successMessage: "Chapter content saved successfully!"
+          });
+        }
+      }
+    ]);
+  } catch (error) {
+    console.error("Error saving chapter:", error);
+    Alert.alert("Error", "Failed to save chapter content");
+  } finally {
+    setSaving(false);
+  }
+};
 
   if (loading) {
     return (
@@ -87,7 +100,13 @@ export default function ContentScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => {
+          // 🔥 Go back to ManageChapters
+          navigation.navigate("ManageChapters", {
+            bookId: bookId,
+            refreshChapters: false
+          });
+        }}>
           <MaterialIcons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <View style={styles.headerTitle}>
@@ -162,8 +181,14 @@ export default function ContentScreen() {
       <View style={styles.actionButtons}>
         <TouchableOpacity
           style={[styles.actionButton, styles.cancelButton]}
-          onPress={() => navigation.goBack()}
-        >
+            onPress={() => {
+                // 🔥 Go back to ManageChapters
+                navigation.navigate("ManageChapters", {
+                  bookId: bookId,
+                  refreshChapters: false
+                });
+              }}
+            >
           <MaterialIcons name="close" size={20} color="#757575" />
           <Text style={styles.cancelButtonText}>Cancel</Text>
         </TouchableOpacity>
